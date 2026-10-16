@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#1e9e4a">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Gasoil Campo</title>
+<style>
+:root{--bg:#f4f5f2;--card:#fff;--tx:#1b1f1a;--mu:#667064;--bd:#d9ddd5;--g:#1e9e4a}
+@media(prefers-color-scheme:dark){:root{--bg:#121512;--card:#1c211b;--tx:#eef2ec;--mu:#9aa596;--bd:#2f372d}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px system-ui,sans-serif;padding:16px 16px 90px;max-width:520px;margin:auto}
+h1{font-size:20px;margin:4px 0 14px}
+.big{width:100%;padding:26px 10px;font-size:24px;font-weight:700;color:#fff;background:var(--g);border:0;border-radius:18px;box-shadow:0 4px 0 #14753a}
+.big:active{transform:translateY(3px);box-shadow:none}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-top:14px}
+label{display:block;font-size:13px;color:var(--mu);margin:10px 0 4px}
+input,select{width:100%;padding:12px;font-size:18px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--tx)}
+.two{display:flex;gap:10px}.two>div{flex:1}
+img.prev{width:100%;border-radius:10px;max-height:200px;object-fit:cover}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.chip{padding:8px 14px;border-radius:20px;border:1px solid var(--g);background:none;color:var(--tx);font-size:16px}
+.st{font-size:13px;color:var(--mu);margin-top:6px}
+.row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--bd);gap:10px}
+.row:first-child{border-top:0}
+.row img{width:48px;height:48px;border-radius:8px;object-fit:cover}
+.row b{font-size:18px}.row small{color:var(--mu)}
+.x{background:none;border:0;color:var(--mu);font-size:20px}
+.sec{background:none;border:1px solid var(--bd);color:var(--tx);padding:12px;border-radius:10px;width:100%;margin-top:10px;font-size:15px}
+h3{margin:14px 0 4px;font-size:15px;color:var(--mu)}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--bd);padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;padding:14px 4px;background:none;border:0;color:var(--mu);font-size:14px}
+nav button.on{color:var(--g);font-weight:700}
+.hide{display:none}
+</style></head><body>
+<h1>⛽ Gasoil Campo</h1>
+
+<section id="v-cargar">
+  <button class="big" id="btnFoto">📷 FOTO AL SURTIDOR</button>
+  <input type="file" id="file" accept="image/*" capture="environment" class="hide">
+  <button class="sec" id="sinFoto">Cargar sin foto</button>
+
+  <div class="card hide" id="form">
+    <img class="prev" id="prev" alt="">
+    <div class="st" id="st"></div>
+    <label>Litros</label>
+    <input id="litros" type="number" inputmode="decimal" step="0.01" placeholder="0.00">
+    <div class="chips" id="chips"></div>
+    <label>Equipo</label>
+    <input id="equipo" list="equipos" placeholder="Ej: Tractor JD 6110" autocomplete="off">
+    <datalist id="equipos"></datalist>
+    <div class="two">
+      <div><label>Horómetro (opcional)</label><input id="horo" type="number" inputmode="decimal" step="0.1" placeholder="hs"></div>
+      <div><label>Lote / labor (opcional)</label><input id="lote" list="lotes" placeholder="Ej: Lote 3 siembra" autocomplete="off"><datalist id="lotes"></datalist></div>
+    </div>
+    <label>Fecha y hora</label>
+    <input id="fecha" type="datetime-local">
+    <button class="big" id="guardar" style="margin-top:16px;padding:18px;font-size:20px">✔ GUARDAR</button>
+    <button class="sec" id="cancel">Cancelar</button>
+  </div>
+
+  <div class="card"><h3 style="margin-top:0">Últimas cargas</h3><div id="lista"></div></div>
+</section>
+
+<section id="v-resumen" class="hide">
+  <div class="card">
+    <label style="margin-top:0">Mes</label><select id="mes"></select>
+    <div id="resTot" class="st"></div>
+    <h3>Por equipo</h3><div id="porEq"></div>
+    <h3>Por lote / labor</h3><div id="porLote"></div>
+  </div>
+</section>
+
+<section id="v-datos" class="hide">
+  <div class="card">
+    <h3 style="margin-top:0">Backup</h3>
+    <div class="st">Guardá el archivo y mandátelo por WhatsApp o a tu nube. Si cambiás de celular, lo importás acá.</div>
+    <button class="sec" id="exp">⬇ Exportar backup (.json)</button>
+    <button class="sec" id="imp2">⬆ Importar backup</button>
+    <input type="file" id="imp" accept=".json,application/json" class="hide">
+    <button class="sec" id="csv">Exportar CSV (Excel)</button>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">Lectura de fotos (OCR) sin internet</h3>
+    <div class="st">Hacelo UNA vez con señal. Descarga el motor y lo deja guardado en el celular.</div>
+    <button class="sec" id="prep">Preparar OCR offline</button>
+    <div class="st" id="ocrst"></div>
+  </div>
+  <div class="card"><div class="st" id="info"></div></div>
+</section>
+
+<nav>
+  <button data-v="cargar" class="on">⛽ Cargar</button>
+  <button data-v="resumen">📊 Resumen</button>
+  <button data-v="datos">💾 Datos</button>
+</nav>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js" onerror="void 0"></script>
+<script>
+const $=id=>document.getElementById(id),K='gasoil_v2';
+let regs=load(),thumb='',mes=new Date().toISOString().slice(0,7);
+function load(){try{return JSON.parse(localStorage.getItem(K))||[]}catch(e){return[]}}
+function persist(){try{localStorage.setItem(K,JSON.stringify(regs));return true}catch(e){alert('No se pudo guardar: sin espacio.');return false}}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const st=t=>$('st').textContent=t;
+function nowLocal(){const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16)}
+const fmtF=f=>new Date(f).toLocaleString('es-AR',{dateStyle:'short',timeStyle:'short'});
+
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.v));
+function show(v){
+  document.querySelectorAll('section').forEach(s=>s.classList.toggle('hide',s.id!=='v-'+v));
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  if(v==='resumen')renderRes(); if(v==='datos')renderInfo();
+}
+function openForm(){
+  $('form').classList.remove('hide');
+  ['litros','equipo','horo','lote'].forEach(i=>$(i).value='');
+  $('chips').innerHTML='';st('');$('fecha').value=nowLocal();
+}
+
+/* ---------- Foto + OCR ---------- */
+$('btnFoto').onclick=()=>$('file').click();
+$('sinFoto').onclick=()=>{thumb='';openForm();$('prev').classList.add('hide');$('form').scrollIntoView({behavior:'smooth'})};
+$('file').onchange=async e=>{
+  const f=e.target.files[0]; if(!f) return; e.target.value='';
+  openForm();
+  const img=new Image(); img.src=URL.createObjectURL(f);
+  await img.decode().catch(()=>{});
+  thumb=draw(img,240,false).toDataURL('image/jpeg',0.6);
+  $('prev').src=thumb;$('prev').classList.remove('hide');
+  $('form').scrollIntoView({behavior:'smooth'});
+  leer(draw(img,1200,true));
+};
+function draw(img,max,enhance){
+  const s=Math.min(1,max/Math.max(img.width,img.height)),c=document.createElement('canvas');
+  c.width=img.width*s;c.height=img.height*s;
+  const x=c.getContext('2d');x.drawImage(img,0,0,c.width,c.height);
+  if(enhance){const d=x.getImageData(0,0,c.width,c.height),p=d.data;
+    for(let i=0;i<p.length;i+=4){let g=.3*p[i]+.59*p[i+1]+.11*p[i+2];g=g>128?Math.min(255,g*1.3):g*.7;p[i]=p[i+1]=p[i+2]=g}
+    x.putImageData(d,0,0)}
+  return c;
+}
+async function ocrTexto(canvas){
+  if(!window.Tesseract) throw new Error('sin motor');
+  const w=await Tesseract.createWorker('eng');
+  await w.setParameters({tessedit_char_whitelist:'0123456789.,',tessedit_pageseg_mode:'11'});
+  const r=await w.recognize(canvas); await w.terminate();
+  return r.data.text;
+}
+async function leer(canvas){
+  st('Leyendo números…');
+  try{
+    const t=await ocrTexto(canvas);
+    const nums=[...new Set((t.match(/\d+[.,]\d+|\d{2,}/g)||[]).map(s=>parseFloat(s.replace(',','.'))).filter(v=>v>0&&v<5000))];
+    if(!nums.length){st('No pude leer números. Cargá los litros a mano.');return}
+    $('litros').value=nums.find(v=>!Number.isInteger(v))??nums[0];
+    $('chips').innerHTML=nums.slice(0,8).map(v=>`<button class="chip" data-v="${v}">${v}</button>`).join('');
+    st('Revisá: tocá otro número si el de litros es otro.');
+  }catch(e){st('OCR no disponible (preparalo en Datos con internet). Cargá los litros a mano.')}
+}
+$('chips').onclick=e=>{if(e.target.dataset.v)$('litros').value=e.target.dataset.v};
+$('cancel').onclick=()=>$('form').classList.add('hide');
+
+/* ---------- Guardar / listar ---------- */
+$('guardar').onclick=()=>{
+  const l=parseFloat($('litros').value),eq=$('equipo').value.trim();
+  if(!(l>0)) return alert('Falta cargar los litros.');
+  if(!eq) return alert('Falta el equipo.');
+  regs.push({id:Date.now(),eq,l,h:parseFloat($('horo').value)||0,lote:$('lote').value.trim(),f:$('fecha').value||nowLocal(),img:thumb});
+  if(!persist()){regs.pop();return}
+  $('form').classList.add('hide');render();
+};
+function render(){
+  const opt=a=>[...new Set(a.filter(Boolean))].map(e=>`<option value="${esc(e)}">`).join('');
+  $('equipos').innerHTML=opt(regs.map(r=>r.eq));$('lotes').innerHTML=opt(regs.map(r=>r.lote));
+  const rec=[...regs].sort((a,b)=>b.f.localeCompare(a.f)).slice(0,10);
+  $('lista').innerHTML=rec.length?rec.map(r=>`<div class="row">${r.img?`<img src="${r.img}">`:''}<div style="flex:1"><b>${r.l} L</b> · ${esc(r.eq)}<br><small>${fmtF(r.f)}${r.h?' · '+r.h+' hs':''}${r.lote?' · '+esc(r.lote):''}</small></div><button class="x" data-d="${r.id}">🗑</button></div>`).join(''):'<div class="st">Todavía no hay cargas.</div>';
+}
+$('lista').onclick=e=>{const id=e.target.dataset.d;if(id&&confirm('¿Borrar esta carga?')){regs=regs.filter(r=>r.id!=id);persist();render()}};
+
+/* ---------- Resumen ---------- */
+function lph(list){
+  const c=list.filter(r=>r.h>0).sort((a,b)=>a.h-b.h);if(c.length<2)return '';
+  const d=c[c.length-1].h-c[0].h;if(d<=0)return '';
+  return ' · '+(c.slice(1).reduce((a,r)=>a+r.l,0)/d).toFixed(1)+' L/h';
+}
+function grupo(list,k,vacio){
+  const m={};list.forEach(r=>(m[r[k]||vacio]=m[r[k]||vacio]||[]).push(r));
+  return Object.entries(m).sort((a,b)=>sum(b[1])-sum(a[1])).map(([n,l])=>`<div class="row"><div><b>${esc(n)}</b><br><small>${l.length} cargas${k==='eq'?lph(l):''}</small></div><b>${sum(l).toFixed(1)} L</b></div>`).join('')||'<div class="st">Sin datos.</div>';
+}
+const sum=l=>l.reduce((a,r)=>a+r.l,0);
+function renderRes(){
+  const ms=[...new Set([new Date().toISOString().slice(0,7),...regs.map(r=>r.f.slice(0,7))])].sort().reverse();
+  $('mes').innerHTML=ms.map(m=>`<option ${m===mes?'selected':''}>${m}</option>`).join('');
+  const l=regs.filter(r=>r.f.startsWith(mes));
+  $('resTot').textContent=`${l.length} cargas · ${sum(l).toFixed(1)} L en el mes`;
+  $('porEq').innerHTML=grupo(l,'eq','(sin equipo)');$('porLote').innerHTML=grupo(l,'lote','(sin lote)');
+}
+$('mes').onchange=e=>{mes=e.target.value;renderRes()};
+
+/* ---------- Datos / backup / OCR offline ---------- */
+function bajar(texto,tipo,nombre){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([texto],{type:tipo}));a.download=nombre;a.click()}
+$('exp').onclick=()=>bajar(JSON.stringify(regs),'application/json','gasoil-backup-'+nowLocal().slice(0,10)+'.json');
+$('imp2').onclick=()=>$('imp').click();
+$('imp').onchange=async e=>{
+  const f=e.target.files[0];e.target.value='';if(!f)return;
+  try{const a=JSON.parse(await f.text());if(!Array.isArray(a))throw 0;
+    const ids=new Set(regs.map(r=>r.id));let n=0;
+    a.forEach(r=>{if(r&&r.id&&r.l&&r.eq&&!ids.has(r.id)){regs.push(r);n++}});
+    persist();render();alert(n+' cargas importadas.')}catch(x){alert('Archivo inválido.')}
+};
+$('csv').onclick=()=>{
+  if(!regs.length)return;
+  const q=s=>'"'+String(s).replace(/"/g,'""')+'"';
+  bajar('fecha,equipo,litros,horometro,lote\n'+regs.map(r=>[r.f,q(r.eq),r.l,r.h||'',q(r.lote||'')].join(',')).join('\n'),'text/csv','gasoil.csv');
+};
+$('prep').onclick=async()=>{
+  if(!navigator.onLine) return $('ocrst').textContent='Necesitás internet para este paso.';
+  $('ocrst').textContent='Descargando motor… puede tardar un minuto.';
+  try{
+    const c=document.createElement('canvas');c.width=260;c.height=90;const x=c.getContext('2d');
+    x.fillStyle='#fff';x.fillRect(0,0,260,90);x.fillStyle='#000';x.font='bold 56px sans-serif';x.fillText('123.4',14,68);
+    await ocrTexto(c);localStorage.setItem('ocr_ok','1');$('ocrst').textContent='Listo ✔ El OCR ya debería andar sin internet.';
+  }catch(e){$('ocrst').textContent='No se pudo descargar. Probá de nuevo con mejor señal.'}
+};
+function renderInfo(){
+  $('ocrst').textContent=localStorage.getItem('ocr_ok')?'Listo ✔ El OCR ya debería andar sin internet.':'';
+  $('info').textContent=`${regs.length} cargas guardadas en este celular. Si borrás los datos del navegador, se pierden: hacé backup seguido.`;
+}
+
+render();
+if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body></html>
