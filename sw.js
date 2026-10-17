@@ -1,5 +1,5 @@
 // Subí el número de versión cada vez que cambies index.html
-const V = 'gasoil-shell-v3';
+const V = 'gasoil-shell-v4';
 const OCR = 'gasoil-ocr'; // guarda el motor OCR; no se borra al actualizar
 const SHELL = ['./', 'index.html', 'manifest.json', 'icon-192.png', 'icon-512.png'];
 
