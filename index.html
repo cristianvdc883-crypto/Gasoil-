@@ -31,11 +31,23 @@ h3{margin:14px 0 4px;font-size:15px;color:var(--mu)}
 nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--bd);padding-bottom:env(safe-area-inset-bottom)}
 nav button{flex:1;padding:14px 4px;background:none;border:0;color:var(--mu);font-size:14px}
 nav button.on{color:var(--g);font-weight:700}
-.hide{display:none}
+.hdr{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;color:var(--mu);margin:-6px 0 12px}.hdr button{background:none;border:1px solid var(--bd);color:var(--tx);padding:6px 10px;border-radius:8px}.hide{display:none}
 </style></head><body>
 <h1>⛽ Gasoil Campo</h1>
+<div id="hdr" class="hdr hide"><span id="quien"></span><span id="est"></span><button id="salir">Salir</button></div>
 
-<section id="v-cargar">
+<section id="v-auth" class="hide"><div class="card" style="margin-top:0">
+  <label style="margin-top:0">Email</label><input id="aMail" type="email" autocomplete="username">
+  <label>Contraseña (mínimo 6)</label><input id="aPass" type="password" autocomplete="current-password">
+  <button class="big" id="aIng" style="margin-top:16px;padding:18px;font-size:20px">INGRESAR</button>
+  <h3>¿Primera vez? Creá tu cuenta</h3>
+  <label style="margin-top:0">Código de invitación (maquinistas)</label><input id="aCode" placeholder="Ej: EUFEMIA" autocapitalize="characters">
+  <label>Nombre del campo (solo patrón, sin código)</label><input id="aCampo" placeholder="Ej: La Eufemia">
+  <button class="sec" id="aReg">Crear cuenta</button>
+  <div class="st" id="aMsg"></div>
+</div></section>
+
+<section id="v-cargar" class="hide">
   <button class="big" id="btnFoto">📷 FOTO AL SURTIDOR</button>
   <input type="file" id="file" accept="image/*" capture="environment" class="hide">
   <button class="sec" id="sinFoto">Cargar sin foto</button>
@@ -50,7 +62,7 @@ nav button.on{color:var(--g);font-weight:700}
     <input id="equipo" list="equipos" placeholder="Ej: Tractor JD 6110" autocomplete="off">
     <datalist id="equipos"></datalist>
     <div class="two">
-      <div><label>Horómetro (opcional)</label><input id="horo" type="number" inputmode="decimal" step="0.1" placeholder="hs"></div>
+      <div><label>Horómetro (opcional)</label><input id="horo" type="number" inputmode="decimal" step="0.1" placeholder="hs"><button class="chip" id="leerH" type="button" style="margin-top:6px">📷 Leer</button></div>
       <div><label>Lote / labor (opcional)</label><input id="lote" list="lotes" placeholder="Ej: Lote 3 siembra" autocomplete="off"><datalist id="lotes"></datalist></div>
     </div>
     <label>Fecha y hora</label>
@@ -66,12 +78,14 @@ nav button.on{color:var(--g);font-weight:700}
   <div class="card">
     <label style="margin-top:0">Mes</label><select id="mes"></select>
     <div id="resTot" class="st"></div>
+    <h3>Por maquinista</h3><div id="porQ"></div>
     <h3>Por equipo</h3><div id="porEq"></div>
     <h3>Por lote / labor</h3><div id="porLote"></div>
   </div>
 </section>
 
 <section id="v-datos" class="hide">
+  <div class="card"><h3 style="margin-top:0">Tu campo</h3><div id="campoInfo" class="st"></div></div>
   <div class="card">
     <h3 style="margin-top:0">Backup</h3>
     <div class="st">Guardá el archivo y mandátelo por WhatsApp o a tu nube. Si cambiás de celular, lo importás acá.</div>
@@ -89,16 +103,21 @@ nav button.on{color:var(--g);font-weight:700}
   <div class="card"><div class="st" id="info"></div></div>
 </section>
 
-<nav>
+<nav class="hide">
   <button data-v="cargar" class="on">⛽ Cargar</button>
-  <button data-v="resumen">📊 Resumen</button>
+  <button data-v="resumen">📊 Panel</button>
   <button data-v="datos">💾 Datos</button>
 </nav>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" onerror="void 0"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js" onerror="void 0"></script>
 <script>
 const $=id=>document.getElementById(id),K='gasoil_v2';
-let regs=load(),thumb='',mes=new Date().toISOString().slice(0,7);
+const SB_URL='https://wzozpqcsypdszueitpzo.supabase.co',SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6b3pwcWNzeXBkc3p1ZWl0cHpvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIxODg0MzcsImV4cCI6MjEwNzc2NDQzN30.63xT-7SUAUdL4poVnemUFxSFBxBaVW7mRjgpMgZxBfk';
+let sb=null;try{sb=supabase.createClient(SB_URL,SB_KEY)}catch(e){}
+let regs=load(),thumb='',mes=new Date().toISOString().slice(0,7),perfil=null,pos=null,destino='litros',chipT='litros';
+let remoto=JSON.parse(localStorage.getItem('remoto')||'null')||{filas:[],miembros:[]};
+regs.forEach(r=>{if(!r.sid){r.sid=crypto.randomUUID();r.ok=0}});
 function load(){try{return JSON.parse(localStorage.getItem(K))||[]}catch(e){return[]}}
 function persist(){try{localStorage.setItem(K,JSON.stringify(regs));return true}catch(e){alert('No se pudo guardar: sin espacio.');return false}}
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -116,6 +135,7 @@ function openForm(){
   $('form').classList.remove('hide');
   ['litros','equipo','horo','lote'].forEach(i=>$(i).value='');
   $('chips').innerHTML='';st('');$('fecha').value=nowLocal();
+  pos=null;if(navigator.geolocation)navigator.geolocation.getCurrentPosition(p=>pos={lat:p.coords.latitude,lng:p.coords.longitude},()=>{},{timeout:8000,maximumAge:600000});
 }
 
 /* ---------- Foto + OCR ---------- */
@@ -123,13 +143,14 @@ $('btnFoto').onclick=()=>$('file').click();
 $('sinFoto').onclick=()=>{thumb='';openForm();$('prev').classList.add('hide');$('form').scrollIntoView({behavior:'smooth'})};
 $('file').onchange=async e=>{
   const f=e.target.files[0]; if(!f) return; e.target.value='';
-  openForm();
+  const d=destino;destino='litros';
+  if(d==='litros')openForm();
   const img=new Image(); img.src=URL.createObjectURL(f);
   await img.decode().catch(()=>{});
-  thumb=draw(img,240,false).toDataURL('image/jpeg',0.6);
-  $('prev').src=thumb;$('prev').classList.remove('hide');
-  $('form').scrollIntoView({behavior:'smooth'});
-  leer(img);
+  if(d==='litros'){thumb=draw(img,240,false).toDataURL('image/jpeg',0.6);
+    $('prev').src=thumb;$('prev').classList.remove('hide');
+    $('form').scrollIntoView({behavior:'smooth'});}
+  leer(img,d);
 };
 function draw(img,max,enhance){
   const s=Math.min(1,max/Math.max(img.width,img.height)),c=document.createElement('canvas');
@@ -152,18 +173,20 @@ async function ocrTexto(cs){
   await w.terminate();
   return t;
 }
-async function leer(img){
+async function leer(img,d){
+  const h=d==='horo',tg=h?'horo':'litros';chipT=tg;
   st('Leyendo números…');
   try{
     const t=await ocrTexto([draw(img,900,true),draw(img,450,true)]);
-    const nums=[...new Set((t.match(/\d+[.,]\d+|\d{2,}/g)||[]).map(s=>parseFloat(s.replace(',','.'))).filter(v=>v>0&&v<5000))];
+    const nums=[...new Set((t.match(/\d+[.,]\d+|\d{2,}/g)||[]).map(s=>parseFloat(s.replace(',','.'))).filter(v=>v>0&&v<(h?100000:5000)))];
     if(!nums.length){st('No pude leer números. Cargá los litros a mano.');return}
-    $('litros').value=nums.find(v=>!Number.isInteger(v))??nums[0];
+    $(tg).value=h?Math.max(...nums):(nums.find(v=>!Number.isInteger(v))??nums[0]);
     $('chips').innerHTML=nums.slice(0,8).map(v=>`<button class="chip" data-v="${v}">${v}</button>`).join('');
-    st('Revisá: tocá otro número si el de litros es otro.');
+    st('Revisá: tocá otro número si el de '+(h?'horómetro':'litros')+' es otro.');
   }catch(e){st('OCR no disponible (preparalo en Datos con internet). Cargá los litros a mano.')}
 }
-$('chips').onclick=e=>{if(e.target.dataset.v)$('litros').value=e.target.dataset.v};
+$('chips').onclick=e=>{if(e.target.dataset.v)$(chipT).value=e.target.dataset.v};
+$('leerH').onclick=()=>{destino='horo';$('file').click()};
 $('cancel').onclick=()=>$('form').classList.add('hide');
 
 /* ---------- Guardar / listar ---------- */
@@ -171,15 +194,15 @@ $('guardar').onclick=()=>{
   const l=parseFloat($('litros').value),eq=$('equipo').value.trim();
   if(!(l>0)) return alert('Falta cargar los litros.');
   if(!eq) return alert('Falta el equipo.');
-  regs.push({id:Date.now(),eq,l,h:parseFloat($('horo').value)||0,lote:$('lote').value.trim(),f:$('fecha').value||nowLocal(),img:thumb});
+  regs.push({id:Date.now(),sid:crypto.randomUUID(),ok:0,eq,l,h:parseFloat($('horo').value)||0,lote:$('lote').value.trim(),f:$('fecha').value||nowLocal(),img:thumb,lat:pos&&pos.lat,lng:pos&&pos.lng});
   if(!persist()){regs.pop();return}
-  $('form').classList.add('hide');render();
+  $('form').classList.add('hide');render();sync();
 };
 function render(){
   const opt=a=>[...new Set(a.filter(Boolean))].map(e=>`<option value="${esc(e)}">`).join('');
   $('equipos').innerHTML=opt(regs.map(r=>r.eq));$('lotes').innerHTML=opt(regs.map(r=>r.lote));
   const rec=[...regs].sort((a,b)=>b.f.localeCompare(a.f)).slice(0,10);
-  $('lista').innerHTML=rec.length?rec.map(r=>`<div class="row">${r.img?`<img src="${r.img}">`:''}<div style="flex:1"><b>${r.l} L</b> · ${esc(r.eq)}<br><small>${fmtF(r.f)}${r.h?' · '+r.h+' hs':''}${r.lote?' · '+esc(r.lote):''}</small></div><button class="x" data-d="${r.id}">🗑</button></div>`).join(''):'<div class="st">Todavía no hay cargas.</div>';
+  $('lista').innerHTML=rec.length?rec.map(r=>`<div class="row">${r.img?`<img src="${r.img}">`:''}<div style="flex:1"><b>${r.l} L</b> · ${esc(r.eq)}<br><small>${fmtF(r.f)}${r.h?' · '+r.h+' hs':''}${r.lote?' · '+esc(r.lote):''}${r.ok?'':' · ⏳ sin subir'}</small></div><button class="x" data-d="${r.id}">🗑</button></div>`).join(''):'<div class="st">Todavía no hay cargas.</div>';
 }
 $('lista').onclick=e=>{const id=e.target.dataset.d;if(id&&confirm('¿Borrar esta carga?')){regs=regs.filter(r=>r.id!=id);persist();render()}};
 
@@ -195,11 +218,11 @@ function grupo(list,k,vacio){
 }
 const sum=l=>l.reduce((a,r)=>a+r.l,0);
 function renderRes(){
-  const ms=[...new Set([new Date().toISOString().slice(0,7),...regs.map(r=>r.f.slice(0,7))])].sort().reverse();
+  const ms=[...new Set([new Date().toISOString().slice(0,7),...panel().map(r=>r.f.slice(0,7))])].sort().reverse();
   $('mes').innerHTML=ms.map(m=>`<option ${m===mes?'selected':''}>${m}</option>`).join('');
-  const l=regs.filter(r=>r.f.startsWith(mes));
+  const l=panel().filter(r=>r.f.startsWith(mes));
   $('resTot').textContent=`${l.length} cargas · ${sum(l).toFixed(1)} L en el mes`;
-  $('porEq').innerHTML=grupo(l,'eq','(sin equipo)');$('porLote').innerHTML=grupo(l,'lote','(sin lote)');
+  $('porEq').innerHTML=grupo(l,'eq','(sin equipo)');$('porQ').innerHTML=grupo(l,'quien','?');$('porLote').innerHTML=grupo(l,'lote','(sin lote)');
 }
 $('mes').onchange=e=>{mes=e.target.value;renderRes()};
 
@@ -211,7 +234,7 @@ $('imp').onchange=async e=>{
   const f=e.target.files[0];e.target.value='';if(!f)return;
   try{const a=JSON.parse(await f.text());if(!Array.isArray(a))throw 0;
     const ids=new Set(regs.map(r=>r.id));let n=0;
-    a.forEach(r=>{if(r&&r.id&&r.l&&r.eq&&!ids.has(r.id)){regs.push(r);n++}});
+    a.forEach(r=>{if(r&&r.id&&r.l&&r.eq&&!ids.has(r.id)){r.sid=r.sid||crypto.randomUUID();r.ok=0;regs.push(r);n++}});
     persist();render();alert(n+' cargas importadas.')}catch(x){alert('Archivo inválido.')}
 };
 $('csv').onclick=()=>{
@@ -229,11 +252,91 @@ $('prep').onclick=async()=>{
   }catch(e){$('ocrst').textContent='No se pudo descargar. Probá de nuevo con mejor señal.'}
 };
 function renderInfo(){
+  if(perfil&&perfil.rol==='ADMIN')$('campoInfo').innerHTML=`Campo: <b>${esc(perfil.campo||'')}</b><br>Código para tus maquinistas: <b style="font-size:22px">${esc(perfil.code||'')}</b><br>Usuarios: ${remoto.miembros.length}/${perfil.max||3}<br>${remoto.miembros.map(esc).join(', ')}`;
   $('ocrst').textContent=localStorage.getItem('ocr_ok')?'Listo ✔ El OCR ya debería andar sin internet.':'';
   $('info').textContent=`${regs.length} cargas guardadas en este celular. Si borrás los datos del navegador, se pierden: hacé backup seguido.`;
 }
 
-render();
+/* ---------- Cuenta, roles y sincronización ---------- */
+const aMsg=t=>$('aMsg').textContent=t;
+const loc=d=>{const x=new Date(d);x.setMinutes(x.getMinutes()-x.getTimezoneOffset());return x.toISOString().slice(0,16)};
+function panel(){const s=new Set(remoto.filas.map(r=>r.sid));return remoto.filas.concat(regs.filter(r=>!s.has(r.sid)).map(r=>({...r,quien:perfil?perfil.email.split('@')[0]:'yo'})))}
+async function cargarPerfil(u){
+  const {data,error}=await sb.from('profiles').select('id,email,rol,campo_id,invite_code,campos(nombre,max_devices)').eq('id',u.id).single();
+  if(error)throw error;
+  perfil={id:data.id,email:data.email,rol:data.rol,campo_id:data.campo_id,code:data.invite_code,campo:data.campos&&data.campos.nombre,max:data.campos&&data.campos.max_devices};
+  localStorage.setItem('perfil',JSON.stringify(perfil));
+}
+async function iniciar(u){
+  await cargarPerfil(u);mostrarApp();sync();
+  if(navigator.onLine&&!localStorage.getItem('ocr_ok'))$('prep').click();
+}
+$('aIng').onclick=async()=>{
+  if(!sb)return aMsg('No cargó el servidor. Abrí la app con señal.');
+  aMsg('Ingresando…');
+  const {data,error}=await sb.auth.signInWithPassword({email:$('aMail').value.trim(),password:$('aPass').value});
+  if(error)return aMsg('Email o contraseña incorrectos (o sin señal).');
+  try{await iniciar(data.user)}catch(e){aMsg('No se pudo cargar tu perfil.')}
+};
+$('aReg').onclick=async()=>{
+  if(!sb)return aMsg('No cargó el servidor. Abrí la app con señal.');
+  const code=$('aCode').value.trim();aMsg('Creando cuenta…');
+  const {data,error}=await sb.auth.signUp({email:$('aMail').value.trim(),password:$('aPass').value,options:{data:{invite_code:code,campo_nombre:$('aCampo').value.trim()}}});
+  if(error)return aMsg('No se pudo crear la cuenta. '+(code?'Revisá el código o si el campo ya llegó a su límite de dispositivos. ':'')+error.message);
+  if(!data.session)return aMsg('Revisá tu email para confirmar la cuenta y después ingresá.');
+  try{await iniciar(data.user)}catch(e){aMsg('Cuenta creada, pero no se pudo cargar el perfil. Ingresá de nuevo.')}
+};
+function mostrarApp(){
+  const adm=perfil.rol==='ADMIN';
+  $('hdr').classList.remove('hide');
+  document.querySelector('nav').classList.toggle('hide',!adm);
+  $('quien').textContent=perfil.email.split('@')[0]+' · '+(adm?'Patrón':'Maquinista');
+  show('cargar');render();renderEstado();
+}
+function renderEstado(){
+  const n=regs.filter(r=>!r.ok).length;
+  $('est').textContent=(navigator.onLine?'● En línea':'○ Sin señal')+(n?' · '+n+' sin subir':'');
+}
+async function bajarPanel(){
+  const [c,p]=await Promise.all([
+    sb.from('cargas').select('sync_id,maquina,litros,horometro,lote,created_at,user_id').eq('campo_id',perfil.campo_id).order('created_at',{ascending:false}).limit(1000),
+    sb.from('profiles').select('id,email').eq('campo_id',perfil.campo_id)]);
+  if(c.error||p.error)return;
+  const m=Object.fromEntries(p.data.map(x=>[x.id,x.email.split('@')[0]]));
+  remoto={filas:c.data.map(r=>({sid:r.sync_id,eq:r.maquina,l:+r.litros,h:+r.horometro||0,lote:r.lote||'',f:loc(r.created_at),quien:m[r.user_id]||'?'})),miembros:p.data.map(x=>x.email)};
+  localStorage.setItem('remoto',JSON.stringify(remoto));
+}
+async function sync(){
+  if(!sb||!perfil||!navigator.onLine)return renderEstado();
+  try{
+    const pend=regs.filter(r=>!r.ok);
+    if(pend.length){
+      const {error}=await sb.from('cargas').upsert(pend.map(r=>({sync_id:r.sid,campo_id:perfil.campo_id,user_id:perfil.id,maquina:r.eq,litros:r.l,horometro:r.h||null,lote:r.lote||null,lat:r.lat??null,lng:r.lng??null,created_at:new Date(r.f).toISOString()})),{onConflict:'sync_id',ignoreDuplicates:true});
+      if(!error){pend.forEach(r=>r.ok=1);persist()}
+    }
+    if(perfil.rol==='ADMIN')await bajarPanel();
+  }catch(e){}
+  render();renderEstado();
+}
+$('salir').onclick=async()=>{
+  const n=regs.filter(r=>!r.ok).length;
+  if(n&&!confirm(n+' cargas todavía no se subieron y se perderían. ¿Salir igual?'))return;
+  try{await sb.auth.signOut()}catch(e){}
+  regs=[];persist();perfil=null;remoto={filas:[],miembros:[]};
+  ['perfil','remoto'].forEach(k=>localStorage.removeItem(k));
+  $('hdr').classList.add('hide');document.querySelector('nav').classList.add('hide');show('auth');
+};
+async function arrancar(){
+  try{perfil=JSON.parse(localStorage.getItem('perfil')||'null')}catch(e){perfil=null}
+  if(sb){try{
+    const {data}=await sb.auth.getSession();
+    if(data.session){if(!perfil||perfil.id!==data.session.user.id){if(navigator.onLine)await cargarPerfil(data.session.user);else perfil=null}}
+    else if(navigator.onLine)perfil=null;
+  }catch(e){}}
+  if(perfil){mostrarApp();sync()}else show('auth');
+}
+addEventListener('online',sync);addEventListener('offline',renderEstado);
+arrancar();
 if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
