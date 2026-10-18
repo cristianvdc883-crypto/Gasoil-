@@ -18,7 +18,7 @@ if(v==='resumen'){renderRes();sync().then(renderRes)} if(v==='datos'){renderInfo
 }
 function openForm(){
 $('form').classList.remove('hide');
-['litros','equipo','horo','lote','equipoSel'].forEach(i=>$(i).value='');
+['litros','equipo','horo','lote','equipoSel'].forEach(i=>$(i).value='');pintarEq();
 $('chips').innerHTML='';st('');$('fecha').value=nowLocal();
 pos=null;if(navigator.geolocation)navigator.geolocation.getCurrentPosition(p=>pos={lat:p.coords.latitude,lng:p.coords.longitude},()=>{},{timeout:8000,maximumAge:600000});
 }
@@ -72,10 +72,11 @@ $('chips').onclick=e=>{if(e.target.dataset.v)$(chipT).value=e.target.dataset.v};
 $('leerH').onclick=()=>{destino='horo';$('file').click()};
 $('cancel').onclick=()=>$('form').classList.add('hide');
 $('guardar').onclick=()=>{
-const l=parseFloat($('litros').value),eq=listaEq.length?$('equipoSel').value:$('equipo').value.trim();
+const l=parseFloat($('litros').value),eq=eqLista.length?$('equipoSel').value:$('equipo').value.trim();
 if(!(l>0)) return alert('Falta cargar los litros.');
 if(!eq) return alert('Falta el equipo.');
-regs.push({id:Date.now(),sid:crypto.randomUUID(),ok:0,eq,l,h:parseFloat($('horo').value)||0,lote:$('lote').value.trim(),f:$('fecha').value||nowLocal(),img:thumb,lat:pos&&pos.lat,lng:pos&&pos.lng});
+if(sitios.length&&!$('sitioSel').value)return alert('Elegí el campo.');
+regs.push({id:Date.now(),sid:crypto.randomUUID(),ok:0,sitio_id:$('sitioSel').value||null,eq,l,h:parseFloat($('horo').value)||0,lote:$('lote').value.trim(),f:$('fecha').value||nowLocal(),img:thumb,lat:pos&&pos.lat,lng:pos&&pos.lng});
 if(!persist()){regs.pop();return}
 $('form').classList.add('hide');render();sync();
 };
@@ -109,20 +110,6 @@ const m={};list.forEach(r=>(m[r[k]||vacio]=m[r[k]||vacio]||[]).push(r));
 return Object.entries(m).sort((a,b)=>sum(b[1])-sum(a[1])).map(([n,l])=>`<div class="row"><div><b>${esc(n)}</b><br><small>${l.length} cargas${k==='eq'?lph(l):''}</small></div><b>${sum(l).toFixed(1)} L</b></div>`).join('')||'<div class="st">Sin datos.</div>';
 }
 const sum=l=>l.reduce((a,r)=>a+r.l,0);
-function porQuien(l){
-const m={};l.forEach(r=>(m[r.quien]=m[r.quien]||[]).push(r));
-return Object.entries(m).sort((a,b)=>sum(b[1])-sum(a[1])).map(([q,ls])=>{
-const e={};ls.forEach(r=>(e[r.eq]=e[r.eq]||[]).push(r));
-return `<div class="row" style="display:block"><div style="display:flex;justify-content:space-between"><b>${esc(q)}</b><b>${sum(ls).toFixed(1)} L</b></div>`+Object.entries(e).map(([n,x])=>`<div class="st" style="display:flex;justify-content:space-between"><span>${esc(n)} · ${x.length} cargas${lph(x)}</span><span>${sum(x).toFixed(1)} L</span></div>`).join('')+'</div>';
-}).join('')||'<div class="st">Sin datos.</div>';
-}
-function renderRes(){
-const ms=[...new Set([new Date().toISOString().slice(0,7),...panel().map(r=>r.f.slice(0,7))])].sort().reverse();
-$('mes').innerHTML=ms.map(m=>`<option ${m===mes?'selected':''}>${m}</option>`).join('');
-const l=panel().filter(r=>r.f.startsWith(mes));
-$('resTot').textContent=`${l.length} cargas · ${sum(l).toFixed(1)} L en el mes (servidor: ${remoto.filas.length} en total)`;
-$('porQ').innerHTML=porQuien(l);$('porLote').innerHTML=grupo(l,'lote','(sin lote)');
-}
 $('mes').onchange=e=>{mes=e.target.value;renderRes()};
 function bajar(texto,tipo,nombre){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([texto],{type:tipo}));a.download=nombre;a.click()}
 $('exp').onclick=()=>bajar(JSON.stringify(regs),'application/json','gasoil-backup-'+nowLocal().slice(0,10)+'.json');
@@ -156,7 +143,7 @@ $('info').textContent=`${regs.length} cargas guardadas en este celular. Si borr�
 const aMsg=t=>$('aMsg').textContent=t;
 let errSync='';
 const loc=d=>{const x=new Date(d);x.setMinutes(x.getMinutes()-x.getTimezoneOffset());return x.toISOString().slice(0,16)};
-function panel(){const s=new Set(remoto.filas.map(r=>r.sid));return remoto.filas.concat(regs.filter(r=>!s.has(r.sid)).map(r=>({...r,quien:perfil?perfil.email.split('@')[0]:'yo'})))}
+function panel(){const s=new Set(remoto.filas.map(r=>r.sid));return remoto.filas.concat(regs.filter(r=>!s.has(r.sid)).map(r=>({...r,quien:perfil?perfil.email.split('@')[0]:'yo',sitio:r.sitio_id})))}
 async function cargarPerfil(u){
 const {data,error}=await sb.from('profiles').select('id,email,rol,campo_id,invite_code,campos!campo_id(nombre,max_devices)').eq('id',u.id).single();
 if(error)throw error;
@@ -195,12 +182,12 @@ $('est').textContent=(navigator.onLine?'● En línea':'○ Sin señal')+(n?' ·
 }
 async function bajarPanel(){
 const [c,p]=await Promise.all([
-sb.from('cargas').select('sync_id,maquina,litros,horometro,lote,created_at,user_id').eq('campo_id',perfil.campo_id).order('created_at',{ascending:false}).limit(1000),
+sb.from('cargas').select('sync_id,maquina,litros,horometro,lote,created_at,user_id,sitio_id').eq('campo_id',perfil.campo_id).order('created_at',{ascending:false}).limit(1000),
 sb.from('profiles').select('id,email').eq('campo_id',perfil.campo_id)]);
 if(c.error||p.error){errSync=' · ⚠ '+String((c.error||p.error).message).slice(0,40);return}
 errSync='';
 const m=Object.fromEntries(p.data.map(x=>[x.id,x.email.split('@')[0]]));
-remoto={filas:c.data.map(r=>({sid:r.sync_id,eq:r.maquina,l:+r.litros,h:+r.horometro||0,lote:r.lote||'',f:loc(r.created_at),quien:m[r.user_id]||'?'})),miembros:p.data.map(x=>x.email)};
+remoto={filas:c.data.map(r=>({sid:r.sync_id,eq:r.maquina,l:+r.litros,h:+r.horometro||0,lote:r.lote||'',f:loc(r.created_at),quien:m[r.user_id]||'?',sitio:r.sitio_id})),miembros:p.data.map(x=>x.email)};
 localStorage.setItem('remoto',JSON.stringify(remoto));
 }
 async function sync(){
@@ -208,12 +195,13 @@ if(!sb||!perfil||!navigator.onLine)return renderEstado();
 try{
 const pend=regs.filter(r=>!r.ok);
 if(pend.length){
-const {error}=await sb.from('cargas').upsert(pend.map(r=>({sync_id:r.sid,campo_id:perfil.campo_id,user_id:perfil.id,maquina:r.eq,litros:r.l,horometro:r.h||null,lote:r.lote||null,lat:r.lat??null,lng:r.lng??null,created_at:new Date(r.f).toISOString()})),{onConflict:'sync_id',ignoreDuplicates:true});
+const {error}=await sb.from('cargas').upsert(pend.map(r=>({sync_id:r.sid,campo_id:perfil.campo_id,user_id:perfil.id,maquina:r.eq,sitio_id:r.sitio_id||null,litros:r.l,horometro:r.h||null,lote:r.lote||null,lat:r.lat??null,lng:r.lng??null,created_at:new Date(r.f).toISOString()})),{onConflict:'sync_id',ignoreDuplicates:true});
 if(!error){pend.forEach(r=>r.ok=1);persist();errSync=''}else errSync=' · ⚠ '+String(error.message).slice(0,40);
 }
+await bajarSitios();
 await bajarEquipos();
 await bajarMias();
-if(perfil.rol==='ADMIN')await bajarPanel();
+if(perfil.rol==='ADMIN'){await bajarPanel();await bajarStock()}
 }catch(e){}
 render();renderEstado();
 }
@@ -222,32 +210,8 @@ const n=regs.filter(r=>!r.ok).length;
 if(n&&!confirm(n+' cargas todavía no se subieron y se perderían. ¿Salir igual?'))return;
 try{await sb.auth.signOut()}catch(e){}
 regs=[];persist();perfil=null;remoto={filas:[],miembros:[]};
-['perfil','remoto','mias'].forEach(k=>localStorage.removeItem(k));mias=[];
+['perfil','remoto','mias','sitios','stock','equipos','sitio'].forEach(k=>localStorage.removeItem(k));mias=[];listaEq=[];sitios=[];stock={};
 $('hdr').classList.add('hide');document.querySelector('nav').classList.add('hide');show('auth');
-};
-let listaEq=[];try{listaEq=JSON.parse(localStorage.getItem('equipos')||'[]')}catch(e){}
-function pintarEq(){
-const s=$('equipoSel'),h=listaEq.length>0;
-s.innerHTML='<option value="">— Elegí el equipo —</option>'+listaEq.map(n=>`<option>${esc(n)}</option>`).join('');
-s.classList.toggle('hide',!h);$('equipo').classList.toggle('hide',h);
-$('listaEq').innerHTML=listaEq.map(n=>`<div class="row"><b>${esc(n)}</b><button class="x" data-n="${esc(n)}">🗑</button></div>`).join('')||'<div class="st">Sin equipos: se escriben a mano.</div>';
-}
-async function bajarEquipos(){
-const {data,error}=await sb.from('equipos').select('nombre').eq('campo_id',perfil.campo_id).order('nombre');
-if(error)return;
-listaEq=data.map(x=>x.nombre);localStorage.setItem('equipos',JSON.stringify(listaEq));pintarEq();
-}
-$('addEq').onclick=async()=>{
-const n=$('nuevoEq').value.trim();if(!n)return;
-if(!navigator.onLine)return alert('Necesitás señal para editar la lista.');
-const {error}=await sb.from('equipos').insert({campo_id:perfil.campo_id,nombre:n});
-if(error)return alert('No se pudo agregar: '+(error.code==='23505'?'ya existe.':error.message));
-$('nuevoEq').value='';bajarEquipos();
-};
-$('listaEq').onclick=async e=>{
-const n=e.target.dataset.n;if(!n||!confirm('¿Quitar "'+n+'" de la lista?'))return;
-if(!navigator.onLine)return alert('Necesitás señal para editar la lista.');
-await sb.from('equipos').delete().eq('campo_id',perfil.campo_id).eq('nombre',n);bajarEquipos();
 };
 const lim=(p,ms)=>Promise.race([p,new Promise((_,no)=>setTimeout(()=>no(new Error('timeout')),ms))]);
 async function arrancar(){
@@ -260,7 +224,5 @@ else if(navigator.onLine)perfil=null;
 if(perfil){mostrarApp();sync()}else show('auth');
 }
 addEventListener('online',sync);addEventListener('offline',renderEstado);
-arrancar();
 if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
-  
