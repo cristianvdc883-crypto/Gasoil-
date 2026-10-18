@@ -57,6 +57,7 @@ nav button.on{color:var(--g);font-weight:700}
 <input id="litros" type="number" inputmode="decimal" step="0.01" placeholder="0.00">
 <div class="chips" id="chips"></div>
 <label>Equipo</label>
+<select id="equipoSel" class="hide"></select>
 <input id="equipo" list="equipos" placeholder="Ej: Tractor JD 6110" autocomplete="off">
 <datalist id="equipos"></datalist>
 <div class="two">
@@ -81,6 +82,7 @@ nav button.on{color:var(--g);font-weight:700}
 </section>
 <section id="v-datos" class="hide">
 <div class="card"><h3 style="margin-top:0">Tu campo</h3><div id="campoInfo" class="st"></div></div>
+<div class="card"><h3 style="margin-top:0">Equipos del campo</h3><div class="st">Tus maquinistas eligen de esta lista, así no escriben el nombre distinto.</div><div class="two" style="margin-top:8px"><input id="nuevoEq" placeholder="Ej: John Deere 6110" autocomplete="off"><button class="sec" id="addEq" style="margin-top:0;width:auto;padding:0 16px">Agregar</button></div><div id="listaEq"></div></div>
 <div class="card">
 <h3 style="margin-top:0">Backup</h3>
 <div class="st">Guardá el archivo y mandátelo por WhatsApp o a tu nube. Si cambiás de celular, lo importás acá.</div>
