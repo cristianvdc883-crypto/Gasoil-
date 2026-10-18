@@ -41,7 +41,7 @@ listaEq=data.map(x=>({n:x.nombre,s:x.sitio_id}));localStorage.setItem('equipos',
 async function bajarStock(){
 const {data,error}=await sb.rpc('stock_sitios');
 if(error)return;
-stock={};data.forEach(x=>stock[x.sitio_id]=+x.litros);localStorage.setItem('stock',JSON.stringify(stock));pintarSitios();
+stock={};data.forEach(x=>stock[x.sitio_id]=+x.litros);localStorage.setItem('stock',JSON.stringify(stock));pintarSitios();bajarIngresos();
 }
 $('sitioSel').onchange=e=>{localStorage.setItem('sitio',e.target.value);pintarEq()};
 $('addSitio').onclick=async()=>{
@@ -96,6 +96,45 @@ $('fSitio').innerHTML='<option value="">Todos los campos</option>'+sitios.map(s=
 $('stockBox').innerHTML=sitios.length?'<h3 style="margin-top:0">Cisternas (litros que quedan)</h3>'+sitios.map(s=>{const v=stock[s.id];return `<div class="row"><b>${esc(s.nombre)}</b><b style="font-size:20px;${v<=0?'color:#c62828':''}">${litros(v)}</b></div>`}).join(''):'';
 const l=panel().filter(r=>r.f.startsWith(mes)&&(!fSit||r.sitio===fSit));
 $('resTot').textContent=`${l.length} cargas · ${sum(l).toFixed(1)} L en el mes`;
-$('porQ').innerHTML=porQuien(l);$('porLote').innerHTML=grupo(l,'lote','(sin lote)');
+$('porQ').innerHTML=porQuien(l);$('porLote').innerHTML=grupo(l,'lote','(sin lote)');pintarCargas(l);
 }
 $('fSitio').onchange=e=>{fSit=e.target.value;renderRes()};
+
+let editSid='',ingr=[];
+function pintarCargas(l){
+const S=new Set(remoto.filas.map(x=>x.sid));
+$('listaC').innerHTML=l.filter(r=>S.has(r.sid)).sort((a,b)=>b.f.localeCompare(a.f)).slice(0,40).map(r=>r.sid===editSid?
+`<div class="row" style="display:block"><label style="margin-top:0">Litros</label><input id="eL" type="number" step="0.01" value="${r.l}"><label>Equipo</label><input id="eE" value="${esc(r.eq)}"><div class="two"><div><label>Horómetro</label><input id="eH" type="number" step="0.1" value="${r.h||''}"></div><div><label>Lote</label><input id="eT" value="${esc(r.lote)}"></div></div><label>Campo</label><select id="eS"><option value="">(sin campo)</option>${sitios.map(s=>`<option value="${s.id}" ${s.id===r.sitio?'selected':''}>${esc(s.nombre)}</option>`).join('')}</select><div style="display:flex;gap:8px;margin-top:10px"><button class="chip" data-c="g" data-i="${r.sid}">Guardar</button><button class="chip" data-c="c">Cancelar</button></div></div>`:
+`<div class="row"><div style="flex:1"><b>${r.l} L</b> · ${esc(r.eq)}<br><small>${esc(r.quien)}${r.sitio?' · '+esc(nSit(r.sitio)):''} · ${fmtF(r.f)}${r.h?' · '+r.h+' hs':''}${r.lote?' · '+esc(r.lote):''}</small></div><button class="x" data-c="e" data-i="${r.sid}">✏️</button><button class="x" data-c="b" data-i="${r.sid}">🗑</button></div>`).join('')||'<div class="st">Sin cargas.</div>';
+}
+$('listaC').onclick=async e=>{
+const c=e.target.dataset.c,i=e.target.dataset.i;if(!c)return;
+if(c==='e'){editSid=i;return renderRes()}
+if(c==='c'){editSid='';return renderRes()}
+if(sinRed())return;
+let r;
+if(c==='b'){
+if(!confirm('¿Borrar esta carga? El stock de la cisterna se recalcula.'))return;
+r=await sb.from('cargas').delete().eq('sync_id',i).select('sync_id');
+}else{
+const l=parseFloat($('eL').value),eq=$('eE').value.trim();
+if(!(l>0)||!eq)return alert('Litros y equipo son obligatorios.');
+r=await sb.from('cargas').update({litros:l,maquina:eq,horometro:parseFloat($('eH').value)||null,lote:$('eT').value.trim()||null,sitio_id:$('eS').value||null}).eq('sync_id',i).select('sync_id');
+}
+if(r.error||!r.data.length)return alert('No se pudo: '+(r.error?r.error.message:'sin permiso o la carga ya no existe.'));
+editSid='';await bajarPanel();await bajarStock();renderRes();
+};
+async function bajarIngresos(){
+const {data,error}=await sb.from('ingresos').select('id,sitio_id,litros,created_at').order('created_at',{ascending:false}).limit(20);
+if(error)return;ingr=data;pintarIng();
+}
+function pintarIng(){
+$('listaIng').innerHTML=ingr.map(x=>`<div class="row"><div><b>${x.litros>0?'+':''}${Math.round(x.litros)} L</b> · ${esc(nSit(x.sitio_id))}<br><small>${fmtF(x.created_at)}</small></div><button class="x" data-m="${x.id}">🗑</button></div>`).join('')||'<div class="st">Sin movimientos.</div>';
+}
+$('listaIng').onclick=async e=>{
+const id=e.target.dataset.m;if(!id||sinRed()||!confirm('¿Borrar este movimiento? El stock se recalcula.'))return;
+const {data,error}=await sb.from('ingresos').delete().eq('id',id).select('id');
+if(error||!data.length)return alert('No se pudo borrar.');
+bajarStock();
+};
+  
