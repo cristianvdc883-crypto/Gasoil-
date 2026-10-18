@@ -262,7 +262,7 @@ const aMsg=t=>$('aMsg').textContent=t;
 const loc=d=>{const x=new Date(d);x.setMinutes(x.getMinutes()-x.getTimezoneOffset());return x.toISOString().slice(0,16)};
 function panel(){const s=new Set(remoto.filas.map(r=>r.sid));return remoto.filas.concat(regs.filter(r=>!s.has(r.sid)).map(r=>({...r,quien:perfil?perfil.email.split('@')[0]:'yo'})))}
 async function cargarPerfil(u){
-  const {data,error}=await sb.from('profiles').select('id,email,rol,campo_id,invite_code,campos(nombre,max_devices)').eq('id',u.id).single();
+  const {data,error}=await sb.from('profiles').select('id,email,rol,campo_id,invite_code,campos!campo_id(nombre,max_devices)').eq('id',u.id).single();
   if(error)throw error;
   perfil={id:data.id,email:data.email,rol:data.rol,campo_id:data.campo_id,code:data.invite_code,campo:data.campos&&data.campos.nombre,max:data.campos&&data.campos.max_devices};
   localStorage.setItem('perfil',JSON.stringify(perfil));
@@ -276,7 +276,7 @@ $('aIng').onclick=async()=>{
   aMsg('Ingresando…');
   const {data,error}=await sb.auth.signInWithPassword({email:$('aMail').value.trim(),password:$('aPass').value});
   if(error)return aMsg('Email o contraseña incorrectos (o sin señal).');
-  try{await iniciar(data.user)}catch(e){aMsg('No se pudo cargar tu perfil.')}
+  try{await iniciar(data.user)}catch(e){aMsg('No se pudo cargar tu perfil: '+(e.message||e))}
 };
 $('aReg').onclick=async()=>{
   if(!sb)return aMsg('No cargó el servidor. Abrí la app con señal.');
@@ -284,7 +284,7 @@ $('aReg').onclick=async()=>{
   const {data,error}=await sb.auth.signUp({email:$('aMail').value.trim(),password:$('aPass').value,options:{data:{invite_code:code,campo_nombre:$('aCampo').value.trim()}}});
   if(error)return aMsg('No se pudo crear la cuenta. '+(code?'Revisá el código o si el campo ya llegó a su límite de dispositivos. ':'')+error.message);
   if(!data.session)return aMsg('Revisá tu email para confirmar la cuenta y después ingresá.');
-  try{await iniciar(data.user)}catch(e){aMsg('Cuenta creada, pero no se pudo cargar el perfil. Ingresá de nuevo.')}
+  try{await iniciar(data.user)}catch(e){aMsg('Cuenta creada, pero no se pudo cargar el perfil: '+(e.message||e))}
 };
 function mostrarApp(){
   const adm=perfil.rol==='ADMIN';
