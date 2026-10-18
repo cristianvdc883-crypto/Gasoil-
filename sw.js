@@ -1,7 +1,7 @@
 // Subí el número de versión cada vez que cambies index.html
-const V = 'gasoil-shell-v6';
+const V = 'gasoil-shell-v7';
 const OCR = 'gasoil-ocr'; // motor OCR y librerías; no se borra al actualizar
-const SHELL = ['./', 'index.html', 'manifest.json', 'icon-192.png', 'icon-512.png'];
+const SHELL = ['./', 'index.html', 'app.js', 'manifest.json', 'icon-192.png', 'icon-512.png'];
 const CDN = ['cdn.jsdelivr.net', 'tessdata.projectnaptha.com']; // único externo que se guarda
 
 self.addEventListener('install', e => {
