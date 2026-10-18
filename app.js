@@ -82,16 +82,17 @@ $('form').classList.add('hide');render();sync();
 };
 let mias=[];try{mias=JSON.parse(localStorage.getItem('mias')||'[]')}catch(e){}
 function historial(){
-const m=new Map();
-mias.forEach(r=>m.set(r.sid,r));
-regs.forEach(r=>{if(!m.has(r.sid))m.set(r.sid,r)});
+const lo=new Map(regs.map(r=>[r.sid,r])),m=new Map(),ok=localStorage.getItem('miasOk');
+if(ok)mias.forEach(r=>m.set(r.sid,{...r,img:(lo.get(r.sid)||{}).img}));
+regs.forEach(r=>{if(!m.has(r.sid)&&(!r.ok||!ok))m.set(r.sid,r)});
 return [...m.values()].sort((a,b)=>b.f.localeCompare(a.f)).slice(0,30);
 }
 async function bajarMias(){
 const {data,error}=await sb.from('cargas').select('sync_id,maquina,litros,horometro,lote,created_at').eq('user_id',perfil.id).order('created_at',{ascending:false}).limit(100);
 if(error)return;
 mias=data.map(r=>({sid:r.sync_id,eq:r.maquina,l:+r.litros,h:+r.horometro||0,lote:r.lote||'',f:loc(r.created_at),ok:1}));
-localStorage.setItem('mias',JSON.stringify(mias));
+localStorage.setItem('mias',JSON.stringify(mias));localStorage.setItem('miasOk','1');
+regs=regs.filter(r=>!r.ok||mias.some(m=>m.sid===r.sid));persist();
 }
 function render(){
 const opt=a=>[...new Set(a.filter(Boolean))].map(e=>`<option value="${esc(e)}">`).join('');
@@ -184,7 +185,7 @@ async function bajarPanel(){
 const [c,p]=await Promise.all([
 sb.from('cargas').select('sync_id,maquina,litros,horometro,lote,created_at,user_id,sitio_id').eq('campo_id',perfil.campo_id).order('created_at',{ascending:false}).limit(1000),
 sb.from('profiles').select('id,email').eq('campo_id',perfil.campo_id)]);
-if(c.error||p.error){errSync=' · ⚠ '+String((c.error||p.error).message).slice(0,40);return}
+if(c.error||p.error){errSync=/fetch|network/i.test(String((c.error||p.error).message))?'':' · ⚠ '+String((c.error||p.error).message).slice(0,40);return}
 errSync='';
 const m=Object.fromEntries(p.data.map(x=>[x.id,x.email.split('@')[0]]));
 remoto={filas:c.data.map(r=>({sid:r.sync_id,eq:r.maquina,l:+r.litros,h:+r.horometro||0,lote:r.lote||'',f:loc(r.created_at),quien:m[r.user_id]||'?',sitio:r.sitio_id})),miembros:p.data.map(x=>x.email)};
@@ -196,7 +197,7 @@ try{
 const pend=regs.filter(r=>!r.ok);
 if(pend.length){
 const {error}=await sb.from('cargas').upsert(pend.map(r=>({sync_id:r.sid,campo_id:perfil.campo_id,user_id:perfil.id,maquina:r.eq,sitio_id:r.sitio_id||null,litros:r.l,horometro:r.h||null,lote:r.lote||null,lat:r.lat??null,lng:r.lng??null,created_at:new Date(r.f).toISOString()})),{onConflict:'sync_id',ignoreDuplicates:true});
-if(!error){pend.forEach(r=>r.ok=1);persist();errSync=''}else errSync=' · ⚠ '+String(error.message).slice(0,40);
+if(!error){pend.forEach(r=>r.ok=1);persist();errSync=''}else errSync=/fetch|network/i.test(String(error.message))?'':' · ⚠ '+String(error.message).slice(0,40);
 }
 await bajarSitios();
 await bajarEquipos();
@@ -210,7 +211,7 @@ const n=regs.filter(r=>!r.ok).length;
 if(n&&!confirm(n+' cargas todavía no se subieron y se perderían. ¿Salir igual?'))return;
 try{await sb.auth.signOut()}catch(e){}
 regs=[];persist();perfil=null;remoto={filas:[],miembros:[]};
-['perfil','remoto','mias','sitios','stock','equipos','sitio'].forEach(k=>localStorage.removeItem(k));mias=[];listaEq=[];sitios=[];stock={};
+['perfil','remoto','mias','miasOk','sitios','stock','equipos','sitio'].forEach(k=>localStorage.removeItem(k));mias=[];listaEq=[];sitios=[];stock={};
 $('hdr').classList.add('hide');document.querySelector('nav').classList.add('hide');show('auth');
 };
 const lim=(p,ms)=>Promise.race([p,new Promise((_,no)=>setTimeout(()=>no(new Error('timeout')),ms))]);
@@ -226,3 +227,4 @@ if(perfil){mostrarApp();sync()}else show('auth');
 addEventListener('online',sync);addEventListener('offline',renderEstado);
 if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+  
