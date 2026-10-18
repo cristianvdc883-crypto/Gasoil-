@@ -313,33 +313,4 @@ async function sync(){
   try{
     const pend=regs.filter(r=>!r.ok);
     if(pend.length){
-      const {error}=await sb.from('cargas').upsert(pend.map(r=>({sync_id:r.sid,campo_id:perfil.campo_id,user_id:perfil.id,maquina:r.eq,litros:r.l,horometro:r.h||null,lote:r.lote||null,lat:r.lat??null,lng:r.lng??null,created_at:new Date(r.f).toISOString()})),{onConflict:'sync_id',ignoreDuplicates:true});
-      if(!error){pend.forEach(r=>r.ok=1);persist();errSync=''}else errSync=' · ⚠ '+String(error.message).slice(0,40);
-    }
-    if(perfil.rol==='ADMIN')await bajarPanel();
-  }catch(e){}
-  render();renderEstado();
-}
-$('salir').onclick=async()=>{
-  const n=regs.filter(r=>!r.ok).length;
-  if(n&&!confirm(n+' cargas todavía no se subieron y se perderían. ¿Salir igual?'))return;
-  try{await sb.auth.signOut()}catch(e){}
-  regs=[];persist();perfil=null;remoto={filas:[],miembros:[]};
-  ['perfil','remoto'].forEach(k=>localStorage.removeItem(k));
-  $('hdr').classList.add('hide');document.querySelector('nav').classList.add('hide');show('auth');
-};
-async function arrancar(){
-  try{perfil=JSON.parse(localStorage.getItem('perfil')||'null')}catch(e){perfil=null}
-  if(sb){try{
-    const {data}=await sb.auth.getSession();
-    if(data.session){if(!perfil||perfil.id!==data.session.user.id){if(navigator.onLine)await cargarPerfil(data.session.user);else perfil=null}}
-    else if(navigator.onLine)perfil=null;
-  }catch(e){}}
-  if(perfil){mostrarApp();sync()}else show('auth');
-}
-addEventListener('online',sync);addEventListener('offline',renderEstado);
-arrancar();
-if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
-if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
-</script>
-</body></html>
+      const {error}=await sb.from('cargas').upsert(pend.map(r=>({sync_id:r.sid,campo_id:perfil.campo_id,user_id:perfil.id,maquina:r.eq,litros:r.l,horometro:r.h||null,lote:r.lote||null,lat:r.lat??null,lng:r.lng??null,created_at:new Date(r.f).toISOStr
