@@ -1,6 +1,6 @@
 // Subí el número de versión cada vez que cambies index.html
-const V = 'gasoil-shell-v4';
-const OCR = 'gasoil-ocr'; // guarda el motor OCR; no se borra al actualizar
+const V = 'gasoil-shell-v5';
+const OCR = 'gasoil-ocr'; // guarda el motor OCR y librerías externas; no se borra al actualizar
 const SHELL = ['./', 'index.html', 'manifest.json', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -21,20 +21,33 @@ self.addEventListener('activate', e => {
   );
 });
 
-// Caché primero; lo que no está se baja y se guarda (así queda el motor OCR y su idioma)
+// Red con límite de 3 s (si hay señal, siempre la versión nueva); si no, lo guardado
+const red = url => new Promise((ok, no) => {
+  const t = setTimeout(() => no(new Error('timeout')), 3000);
+  fetch(url, { cache: 'no-cache' }).then(r => { clearTimeout(t); ok(r); }, e => { clearTimeout(t); no(e); });
+});
+
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   const propio = new URL(e.request.url).origin === self.location.origin;
-  e.respondWith(
-    caches.match(e.request).then(hit =>
-      hit ||
-      fetch(e.request).then(res => {
-        if (res && (res.ok || res.type === 'opaque')) {
-          const copy = res.clone();
-          caches.open(propio ? V : OCR).then(c => c.put(e.request, copy));
-        }
-        return res;
-      }).catch(() => caches.match('index.html'))
-    )
-  );
+  if (propio) {
+    e.respondWith(
+      red(e.request.url)
+        .then(res => {
+          if (res.ok) { const copy = res.clone(); caches.open(V).then(c => c.put(e.request, copy)); }
+          return res;
+        })
+        .catch(() => caches.match(e.request, { ignoreSearch: true }).then(h => h || caches.match('index.html')))
+    );
+  } else {
+    // Librerías externas (OCR, Supabase): caché primero
+    e.respondWith(
+      caches.match(e.request).then(hit =>
+        hit || fetch(e.request).then(res => {
+          if (res && (res.ok || res.type === 'opaque')) { const copy = res.clone(); caches.open(OCR).then(c => c.put(e.request, copy)); }
+          return res;
+        })
+      )
+    );
+  }
 });
