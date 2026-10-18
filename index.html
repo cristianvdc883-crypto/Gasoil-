@@ -129,7 +129,7 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.
 function show(v){
   document.querySelectorAll('section').forEach(s=>s.classList.toggle('hide',s.id!=='v-'+v));
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
-  if(v==='resumen')renderRes(); if(v==='datos')renderInfo();
+  if(v==='resumen'){renderRes();sync().then(renderRes)} if(v==='datos'){renderInfo();sync().then(renderInfo)}
 }
 function openForm(){
   $('form').classList.remove('hide');
@@ -221,7 +221,7 @@ function renderRes(){
   const ms=[...new Set([new Date().toISOString().slice(0,7),...panel().map(r=>r.f.slice(0,7))])].sort().reverse();
   $('mes').innerHTML=ms.map(m=>`<option ${m===mes?'selected':''}>${m}</option>`).join('');
   const l=panel().filter(r=>r.f.startsWith(mes));
-  $('resTot').textContent=`${l.length} cargas · ${sum(l).toFixed(1)} L en el mes`;
+  $('resTot').textContent=`${l.length} cargas · ${sum(l).toFixed(1)} L en el mes (servidor: ${remoto.filas.length} en total)`;
   $('porEq').innerHTML=grupo(l,'eq','(sin equipo)');$('porQ').innerHTML=grupo(l,'quien','?');$('porLote').innerHTML=grupo(l,'lote','(sin lote)');
 }
 $('mes').onchange=e=>{mes=e.target.value;renderRes()};
@@ -259,6 +259,7 @@ function renderInfo(){
 
 /* ---------- Cuenta, roles y sincronización ---------- */
 const aMsg=t=>$('aMsg').textContent=t;
+let errSync='';
 const loc=d=>{const x=new Date(d);x.setMinutes(x.getMinutes()-x.getTimezoneOffset());return x.toISOString().slice(0,16)};
 function panel(){const s=new Set(remoto.filas.map(r=>r.sid));return remoto.filas.concat(regs.filter(r=>!s.has(r.sid)).map(r=>({...r,quien:perfil?perfil.email.split('@')[0]:'yo'})))}
 async function cargarPerfil(u){
@@ -295,13 +296,14 @@ function mostrarApp(){
 }
 function renderEstado(){
   const n=regs.filter(r=>!r.ok).length;
-  $('est').textContent=(navigator.onLine?'● En línea':'○ Sin señal')+(n?' · '+n+' sin subir':'');
+  $('est').textContent=(navigator.onLine?'● En línea':'○ Sin señal')+(n?' · '+n+' sin subir':'')+errSync;
 }
 async function bajarPanel(){
   const [c,p]=await Promise.all([
     sb.from('cargas').select('sync_id,maquina,litros,horometro,lote,created_at,user_id').eq('campo_id',perfil.campo_id).order('created_at',{ascending:false}).limit(1000),
     sb.from('profiles').select('id,email').eq('campo_id',perfil.campo_id)]);
-  if(c.error||p.error)return;
+  if(c.error||p.error){errSync=' · ⚠ '+String((c.error||p.error).message).slice(0,40);return}
+  errSync='';
   const m=Object.fromEntries(p.data.map(x=>[x.id,x.email.split('@')[0]]));
   remoto={filas:c.data.map(r=>({sid:r.sync_id,eq:r.maquina,l:+r.litros,h:+r.horometro||0,lote:r.lote||'',f:loc(r.created_at),quien:m[r.user_id]||'?'})),miembros:p.data.map(x=>x.email)};
   localStorage.setItem('remoto',JSON.stringify(remoto));
@@ -312,7 +314,7 @@ async function sync(){
     const pend=regs.filter(r=>!r.ok);
     if(pend.length){
       const {error}=await sb.from('cargas').upsert(pend.map(r=>({sync_id:r.sid,campo_id:perfil.campo_id,user_id:perfil.id,maquina:r.eq,litros:r.l,horometro:r.h||null,lote:r.lote||null,lat:r.lat??null,lng:r.lng??null,created_at:new Date(r.f).toISOString()})),{onConflict:'sync_id',ignoreDuplicates:true});
-      if(!error){pend.forEach(r=>r.ok=1);persist()}
+      if(!error){pend.forEach(r=>r.ok=1);persist();errSync=''}else errSync=' · ⚠ '+String(error.message).slice(0,40);
     }
     if(perfil.rol==='ADMIN')await bajarPanel();
   }catch(e){}
