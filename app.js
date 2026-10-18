@@ -18,7 +18,7 @@ if(v==='resumen'){renderRes();sync().then(renderRes)} if(v==='datos'){renderInfo
 }
 function openForm(){
 $('form').classList.remove('hide');
-['litros','equipo','horo','lote'].forEach(i=>$(i).value='');
+['litros','equipo','horo','lote','equipoSel'].forEach(i=>$(i).value='');
 $('chips').innerHTML='';st('');$('fecha').value=nowLocal();
 pos=null;if(navigator.geolocation)navigator.geolocation.getCurrentPosition(p=>pos={lat:p.coords.latitude,lng:p.coords.longitude},()=>{},{timeout:8000,maximumAge:600000});
 }
@@ -72,7 +72,7 @@ $('chips').onclick=e=>{if(e.target.dataset.v)$(chipT).value=e.target.dataset.v};
 $('leerH').onclick=()=>{destino='horo';$('file').click()};
 $('cancel').onclick=()=>$('form').classList.add('hide');
 $('guardar').onclick=()=>{
-const l=parseFloat($('litros').value),eq=$('equipo').value.trim();
+const l=parseFloat($('litros').value),eq=listaEq.length?$('equipoSel').value:$('equipo').value.trim();
 if(!(l>0)) return alert('Falta cargar los litros.');
 if(!eq) return alert('Falta el equipo.');
 regs.push({id:Date.now(),sid:crypto.randomUUID(),ok:0,eq,l,h:parseFloat($('horo').value)||0,lote:$('lote').value.trim(),f:$('fecha').value||nowLocal(),img:thumb,lat:pos&&pos.lat,lng:pos&&pos.lng});
@@ -167,7 +167,7 @@ const adm=perfil.rol==='ADMIN';
 $('hdr').classList.remove('hide');
 document.querySelector('nav').classList.toggle('hide',!adm);
 $('quien').textContent=perfil.email.split('@')[0]+' · '+(adm?'Patrón':'Maquinista');
-show('cargar');render();renderEstado();
+show('cargar');render();renderEstado();pintarEq();
 }
 function renderEstado(){
 const n=regs.filter(r=>!r.ok).length;
@@ -191,6 +191,7 @@ if(pend.length){
 const {error}=await sb.from('cargas').upsert(pend.map(r=>({sync_id:r.sid,campo_id:perfil.campo_id,user_id:perfil.id,maquina:r.eq,litros:r.l,horometro:r.h||null,lote:r.lote||null,lat:r.lat??null,lng:r.lng??null,created_at:new Date(r.f).toISOString()})),{onConflict:'sync_id',ignoreDuplicates:true});
 if(!error){pend.forEach(r=>r.ok=1);persist();errSync=''}else errSync=' · ⚠ '+String(error.message).slice(0,40);
 }
+await bajarEquipos();
 if(perfil.rol==='ADMIN')await bajarPanel();
 }catch(e){}
 render();renderEstado();
@@ -202,6 +203,30 @@ try{await sb.auth.signOut()}catch(e){}
 regs=[];persist();perfil=null;remoto={filas:[],miembros:[]};
 ['perfil','remoto'].forEach(k=>localStorage.removeItem(k));
 $('hdr').classList.add('hide');document.querySelector('nav').classList.add('hide');show('auth');
+};
+let listaEq=[];try{listaEq=JSON.parse(localStorage.getItem('equipos')||'[]')}catch(e){}
+function pintarEq(){
+const s=$('equipoSel'),h=listaEq.length>0;
+s.innerHTML='<option value="">— Elegí el equipo —</option>'+listaEq.map(n=>`<option>${esc(n)}</option>`).join('');
+s.classList.toggle('hide',!h);$('equipo').classList.toggle('hide',h);
+$('listaEq').innerHTML=listaEq.map(n=>`<div class="row"><b>${esc(n)}</b><button class="x" data-n="${esc(n)}">🗑</button></div>`).join('')||'<div class="st">Sin equipos: se escriben a mano.</div>';
+}
+async function bajarEquipos(){
+const {data,error}=await sb.from('equipos').select('nombre').eq('campo_id',perfil.campo_id).order('nombre');
+if(error)return;
+listaEq=data.map(x=>x.nombre);localStorage.setItem('equipos',JSON.stringify(listaEq));pintarEq();
+}
+$('addEq').onclick=async()=>{
+const n=$('nuevoEq').value.trim();if(!n)return;
+if(!navigator.onLine)return alert('Necesitás señal para editar la lista.');
+const {error}=await sb.from('equipos').insert({campo_id:perfil.campo_id,nombre:n});
+if(error)return alert('No se pudo agregar: '+(error.code==='23505'?'ya existe.':error.message));
+$('nuevoEq').value='';bajarEquipos();
+};
+$('listaEq').onclick=async e=>{
+const n=e.target.dataset.n;if(!n||!confirm('¿Quitar "'+n+'" de la lista?'))return;
+if(!navigator.onLine)return alert('Necesitás señal para editar la lista.');
+await sb.from('equipos').delete().eq('campo_id',perfil.campo_id).eq('nombre',n);bajarEquipos();
 };
 const lim=(p,ms)=>Promise.race([p,new Promise((_,no)=>setTimeout(()=>no(new Error('timeout')),ms))]);
 async function arrancar(){
@@ -217,4 +242,4 @@ addEventListener('online',sync);addEventListener('offline',renderEstado);
 arrancar();
 if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
-                                                                      
+  
