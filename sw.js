@@ -1,7 +1,8 @@
 // Subí el número de versión cada vez que cambies index.html
-const V = 'gasoil-shell-v5';
-const OCR = 'gasoil-ocr'; // guarda el motor OCR y librerías externas; no se borra al actualizar
+const V = 'gasoil-shell-v6';
+const OCR = 'gasoil-ocr'; // motor OCR y librerías; no se borra al actualizar
 const SHELL = ['./', 'index.html', 'manifest.json', 'icon-192.png', 'icon-512.png'];
+const CDN = ['cdn.jsdelivr.net', 'tessdata.projectnaptha.com']; // único externo que se guarda
 
 self.addEventListener('install', e => {
   e.waitUntil(
@@ -17,6 +18,11 @@ self.addEventListener('activate', e => {
       .then(keys => Promise.all(
         keys.filter(k => k.startsWith('gasoil-shell-') && k !== V).map(k => caches.delete(k))
       ))
+      // limpia respuestas de Supabase que versiones anteriores guardaron por error
+      .then(() => caches.open(OCR))
+      .then(c => c.keys().then(ks => Promise.all(
+        ks.filter(r => new URL(r.url).hostname.endsWith('supabase.co')).map(r => c.delete(r))
+      )))
       .then(() => self.clients.claim())
   );
 });
@@ -29,8 +35,8 @@ const red = url => new Promise((ok, no) => {
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
-  const propio = new URL(e.request.url).origin === self.location.origin;
-  if (propio) {
+  const u = new URL(e.request.url);
+  if (u.origin === self.location.origin) {
     e.respondWith(
       red(e.request.url)
         .then(res => {
@@ -39,8 +45,8 @@ self.addEventListener('fetch', e => {
         })
         .catch(() => caches.match(e.request, { ignoreSearch: true }).then(h => h || caches.match('index.html')))
     );
-  } else {
-    // Librerías externas (OCR, Supabase): caché primero
+  } else if (CDN.includes(u.hostname)) {
+    // Motor OCR y librerías: caché primero
     e.respondWith(
       caches.match(e.request).then(hit =>
         hit || fetch(e.request).then(res => {
@@ -50,4 +56,5 @@ self.addEventListener('fetch', e => {
       )
     );
   }
+  // Cualquier otro (Supabase, etc.): no se intercepta, va siempre a la red
 });
