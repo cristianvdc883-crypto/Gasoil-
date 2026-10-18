@@ -79,11 +79,24 @@ regs.push({id:Date.now(),sid:crypto.randomUUID(),ok:0,eq,l,h:parseFloat($('horo'
 if(!persist()){regs.pop();return}
 $('form').classList.add('hide');render();sync();
 };
+let mias=[];try{mias=JSON.parse(localStorage.getItem('mias')||'[]')}catch(e){}
+function historial(){
+const m=new Map();
+mias.forEach(r=>m.set(r.sid,r));
+regs.forEach(r=>{if(!m.has(r.sid))m.set(r.sid,r)});
+return [...m.values()].sort((a,b)=>b.f.localeCompare(a.f)).slice(0,30);
+}
+async function bajarMias(){
+const {data,error}=await sb.from('cargas').select('sync_id,maquina,litros,horometro,lote,created_at').eq('user_id',perfil.id).order('created_at',{ascending:false}).limit(100);
+if(error)return;
+mias=data.map(r=>({sid:r.sync_id,eq:r.maquina,l:+r.litros,h:+r.horometro||0,lote:r.lote||'',f:loc(r.created_at),ok:1}));
+localStorage.setItem('mias',JSON.stringify(mias));
+}
 function render(){
 const opt=a=>[...new Set(a.filter(Boolean))].map(e=>`<option value="${esc(e)}">`).join('');
 $('equipos').innerHTML=opt(regs.map(r=>r.eq));$('lotes').innerHTML=opt(regs.map(r=>r.lote));
-const rec=[...regs].sort((a,b)=>b.f.localeCompare(a.f)).slice(0,10);
-$('lista').innerHTML=rec.length?rec.map(r=>`<div class="row">${r.img?`<img src="${r.img}">`:''}<div style="flex:1"><b>${r.l} L</b> · ${esc(r.eq)}<br><small>${fmtF(r.f)}${r.h?' · '+r.h+' hs':''}${r.lote?' · '+esc(r.lote):''}${r.ok?'':' · ⏳ sin subir'}</small></div><button class="x" data-d="${r.id}">🗑</button></div>`).join(''):'<div class="st">Todavía no hay cargas.</div>';
+const rec=historial();
+$('lista').innerHTML=rec.length?rec.map(r=>`<div class="row">${r.img?`<img src="${r.img}">`:''}<div style="flex:1"><b>${r.l} L</b> · ${esc(r.eq)}<br><small>${fmtF(r.f)}${r.h?' · '+r.h+' hs':''}${r.lote?' · '+esc(r.lote):''}${r.ok?' · ✔ guardada':' · ⏳ sin subir'}</small></div>${r.ok?'':`<button class="x" data-d="${r.id}">🗑</button>`}</div>`).join(''):'<div class="st">Todavía no hay cargas.</div>';
 }
 $('lista').onclick=e=>{const id=e.target.dataset.d;if(id&&confirm('¿Borrar esta carga?')){regs=regs.filter(r=>r.id!=id);persist();render()}};
 function lph(list){
@@ -96,12 +109,19 @@ const m={};list.forEach(r=>(m[r[k]||vacio]=m[r[k]||vacio]||[]).push(r));
 return Object.entries(m).sort((a,b)=>sum(b[1])-sum(a[1])).map(([n,l])=>`<div class="row"><div><b>${esc(n)}</b><br><small>${l.length} cargas${k==='eq'?lph(l):''}</small></div><b>${sum(l).toFixed(1)} L</b></div>`).join('')||'<div class="st">Sin datos.</div>';
 }
 const sum=l=>l.reduce((a,r)=>a+r.l,0);
+function porQuien(l){
+const m={};l.forEach(r=>(m[r.quien]=m[r.quien]||[]).push(r));
+return Object.entries(m).sort((a,b)=>sum(b[1])-sum(a[1])).map(([q,ls])=>{
+const e={};ls.forEach(r=>(e[r.eq]=e[r.eq]||[]).push(r));
+return `<div class="row" style="display:block"><div style="display:flex;justify-content:space-between"><b>${esc(q)}</b><b>${sum(ls).toFixed(1)} L</b></div>`+Object.entries(e).map(([n,x])=>`<div class="st" style="display:flex;justify-content:space-between"><span>${esc(n)} · ${x.length} cargas${lph(x)}</span><span>${sum(x).toFixed(1)} L</span></div>`).join('')+'</div>';
+}).join('')||'<div class="st">Sin datos.</div>';
+}
 function renderRes(){
 const ms=[...new Set([new Date().toISOString().slice(0,7),...panel().map(r=>r.f.slice(0,7))])].sort().reverse();
 $('mes').innerHTML=ms.map(m=>`<option ${m===mes?'selected':''}>${m}</option>`).join('');
 const l=panel().filter(r=>r.f.startsWith(mes));
 $('resTot').textContent=`${l.length} cargas · ${sum(l).toFixed(1)} L en el mes (servidor: ${remoto.filas.length} en total)`;
-$('porEq').innerHTML=grupo(l,'eq','(sin equipo)');$('porQ').innerHTML=grupo(l,'quien','?');$('porLote').innerHTML=grupo(l,'lote','(sin lote)');
+$('porQ').innerHTML=porQuien(l);$('porLote').innerHTML=grupo(l,'lote','(sin lote)');
 }
 $('mes').onchange=e=>{mes=e.target.value;renderRes()};
 function bajar(texto,tipo,nombre){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([texto],{type:tipo}));a.download=nombre;a.click()}
@@ -192,6 +212,7 @@ const {error}=await sb.from('cargas').upsert(pend.map(r=>({sync_id:r.sid,campo_i
 if(!error){pend.forEach(r=>r.ok=1);persist();errSync=''}else errSync=' · ⚠ '+String(error.message).slice(0,40);
 }
 await bajarEquipos();
+await bajarMias();
 if(perfil.rol==='ADMIN')await bajarPanel();
 }catch(e){}
 render();renderEstado();
@@ -201,7 +222,7 @@ const n=regs.filter(r=>!r.ok).length;
 if(n&&!confirm(n+' cargas todavía no se subieron y se perderían. ¿Salir igual?'))return;
 try{await sb.auth.signOut()}catch(e){}
 regs=[];persist();perfil=null;remoto={filas:[],miembros:[]};
-['perfil','remoto'].forEach(k=>localStorage.removeItem(k));
+['perfil','remoto','mias'].forEach(k=>localStorage.removeItem(k));mias=[];
 $('hdr').classList.add('hide');document.querySelector('nav').classList.add('hide');show('auth');
 };
 let listaEq=[];try{listaEq=JSON.parse(localStorage.getItem('equipos')||'[]')}catch(e){}
