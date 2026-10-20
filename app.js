@@ -14,6 +14,7 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.
 function show(v){
 document.querySelectorAll('section').forEach(s=>s.classList.toggle('hide',s.id!=='v-'+v));
 document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+if(v==='plat')pintarPlat();
 if(v==='resumen'){renderRes();sync().then(renderRes)} if(v==='datos'){renderInfo();sync().then(renderInfo)}
 }
 function openForm(){
@@ -146,10 +147,11 @@ let errSync='';
 const loc=d=>{const x=new Date(d);x.setMinutes(x.getMinutes()-x.getTimezoneOffset());return x.toISOString().slice(0,16)};
 function panel(){const s=new Set(remoto.filas.map(r=>r.sid));return remoto.filas.concat(regs.filter(r=>!s.has(r.sid)).map(r=>({...r,quien:perfil?perfil.email.split('@')[0]:'yo',sitio:r.sitio_id})))}
 async function cargarPerfil(u){
-const {data,error}=await sb.from('profiles').select('id,email,rol,campo_id,invite_code,baja,campos!campo_id(nombre,max_devices)').eq('id',u.id).single();
+const {data,error}=await sb.from('profiles').select('id,email,rol,campo_id,invite_code,baja,es_dueno,campos!campo_id(nombre,max_devices)').eq('id',u.id).single();
 if(error)throw error;
 if(data.baja)throw new Error('El patrón dio de baja tu acceso.');
-perfil={id:data.id,email:data.email,rol:data.rol,campo_id:data.campo_id,code:data.invite_code,campo:data.campos&&data.campos.nombre,max:data.campos&&data.campos.max_devices};
+if(!data.campos)throw new Error('Tu cuenta está vencida o suspendida. Consultá con quien te dio la app.');
+perfil={dueno:!!data.es_dueno,id:data.id,email:data.email,rol:data.rol,campo_id:data.campo_id,code:data.invite_code,campo:data.campos&&data.campos.nombre,max:data.campos&&data.campos.max_devices};
 localStorage.setItem('perfil',JSON.stringify(perfil));
 }
 async function iniciar(u){
@@ -166,15 +168,15 @@ try{await iniciar(data.user)}catch(e){aMsg('No se pudo cargar tu perfil: '+(e.me
 $('aReg').onclick=async()=>{
 if(!sb)return aMsg('No cargó el servidor. Abrí la app con señal.');
 const code=$('aCode').value.trim();aMsg('Creando cuenta…');
-const {data,error}=await sb.auth.signUp({email:$('aMail').value.trim(),password:$('aPass').value,options:{data:{invite_code:code,campo_nombre:$('aCampo').value.trim()}}});
-if(error)return aMsg('No se pudo crear la cuenta. '+(code?'Revisá el código o si el campo ya llegó a su límite de dispositivos. ':'')+error.message);
+const {data,error}=await sb.auth.signUp({email:$('aMail').value.trim(),password:$('aPass').value,options:{data:{invite_code:code,campo_nombre:$('aCampo').value.trim(),activation_code:$('aAct').value.trim()}}});
+if(error)return aMsg('No se pudo crear la cuenta. '+(code?'Revisá el código o si el campo ya llegó a su límite de dispositivos. ':'Para crear una cuenta de patrón necesitás un código de activación sin usar. ')+error.message);
 if(!data.session)return aMsg('Revisá tu email para confirmar la cuenta y después ingresá.');
 try{await iniciar(data.user)}catch(e){aMsg('Cuenta creada, pero no se pudo cargar el perfil: '+(e.message||e))}
 };
 function mostrarApp(){
 const adm=perfil.rol==='ADMIN';
 $('hdr').classList.remove('hide');
-document.querySelector('nav').classList.toggle('hide',!adm);
+document.querySelector('nav').classList.toggle('hide',!adm);$('nPlat').classList.toggle('hide',!perfil.dueno);
 $('quien').textContent=perfil.email.split('@')[0]+' · '+(adm?'Patrón':'Maquinista');
 show('cargar');render();renderEstado();pintarEq();
 }
@@ -197,6 +199,8 @@ if(!sb||!perfil||!navigator.onLine)return renderEstado();
 try{
 const q=await sb.from('profiles').select('baja').eq('id',perfil.id).maybeSingle();
 if(q.data&&q.data.baja){alert('El patrón dio de baja tu acceso a este campo.');regs=[];persist();$('salir').click();return}
+const cc=await sb.from('campos').select('id').eq('id',perfil.campo_id).maybeSingle();
+if(!cc.error&&!cc.data){errSync=' · ⚠ cuenta vencida o suspendida';renderEstado();return}
 const pend=regs.filter(r=>!r.ok);
 if(pend.length){
 const {error}=await sb.from('cargas').upsert(pend.map(r=>({sync_id:r.sid,campo_id:perfil.campo_id,user_id:perfil.id,maquina:r.eq,sitio_id:r.sitio_id||null,litros:r.l,horometro:r.h||null,lote:r.lote||null,lat:r.lat??null,lng:r.lng??null,created_at:new Date(r.f).toISOString()})),{onConflict:'sync_id',ignoreDuplicates:true});
@@ -230,3 +234,4 @@ if(perfil){mostrarApp();sync()}else show('auth');
 addEventListener('online',sync);addEventListener('offline',renderEstado);
 if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+                                                                                   
