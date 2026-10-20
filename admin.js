@@ -4,6 +4,7 @@ listaEq=JSON.parse(localStorage.getItem('equipos')||'[]').map(x=>typeof x==='str
 sitios=JSON.parse(localStorage.getItem('sitios')||'[]');
 stock=JSON.parse(localStorage.getItem('stock')||'{}');
 }catch(e){}
+const falla=(x,e)=>{if(e&&!/fetch|network/i.test(String(e.message))){errSync=' · ⚠ '+x+': '+String(e.message).slice(0,45);renderEstado()}};
 const nSit=id=>(sitios.find(x=>x.id===id)||{}).nombre||'';
 const sinRed=()=>!navigator.onLine&&(alert('Necesitás señal para esto.'),true);
 const litros=v=>v==null?'—':Math.round(v).toLocaleString('es-AR')+' L';
@@ -30,17 +31,17 @@ $('eqSitio').value=v;
 }
 async function bajarSitios(){
 const {data,error}=await sb.from('sitios').select('id,nombre').eq('campo_id',perfil.campo_id).order('nombre');
-if(error)return;
+if(error)return falla('campos',error);
 sitios=data;localStorage.setItem('sitios',JSON.stringify(sitios));pintarEq();
 }
 async function bajarEquipos(){
 const {data,error}=await sb.from('equipos').select('nombre,sitio_id').eq('campo_id',perfil.campo_id).order('nombre');
-if(error)return;
+if(error)return falla('equipos',error);
 listaEq=data.map(x=>({n:x.nombre,s:x.sitio_id}));localStorage.setItem('equipos',JSON.stringify(listaEq));pintarEq();
 }
 async function bajarStock(){
 const {data,error}=await sb.rpc('stock_sitios');
-if(error)return;
+if(error)return falla('stock',error);
 stock={};data.forEach(x=>stock[x.sitio_id]=+x.litros);localStorage.setItem('stock',JSON.stringify(stock));pintarSitios();bajarIngresos();
 }
 $('sitioSel').onchange=e=>{localStorage.setItem('sitio',e.target.value);pintarEq()};
@@ -126,7 +127,7 @@ editSid='';await bajarPanel();await bajarStock();renderRes();
 };
 async function bajarIngresos(){
 const {data,error}=await sb.from('ingresos').select('id,sitio_id,litros,created_at').order('created_at',{ascending:false}).limit(20);
-if(error)return;ingr=data;pintarIng();
+if(error)return falla('movimientos',error);ingr=data;pintarIng();
 }
 function pintarIng(){
 $('listaIng').innerHTML=ingr.map(x=>`<div class="row"><div><b>${x.litros>0?'+':''}${Math.round(x.litros)} L</b> · ${esc(nSit(x.sitio_id))}<br><small>${fmtF(x.created_at)}</small></div><button class="x" data-m="${x.id}">🗑</button></div>`).join('')||'<div class="st">Sin movimientos.</div>';
@@ -134,7 +135,25 @@ $('listaIng').innerHTML=ingr.map(x=>`<div class="row"><div><b>${x.litros>0?'+':'
 $('listaIng').onclick=async e=>{
 const id=e.target.dataset.m;if(!id||sinRed()||!confirm('¿Borrar este movimiento? El stock se recalcula.'))return;
 const {data,error}=await sb.from('ingresos').delete().eq('id',id).select('id');
-if(error||!data.length)return alert('No se pudo borrar.');
+if(error||!data.length)return alert('No se pudo borrar: '+(error?error.message:'el servidor no borró nada (falta permiso).'));
 bajarStock();
 };
-  
+
+function pintarMiembros(){
+const ms=(remoto.miembros||[]).filter(x=>x&&x.id);
+$('listaM').innerHTML=ms.map(x=>`<div class="row"><div style="flex:1"><b>${esc(x.nombre||x.email.split('@')[0])}</b>${x.baja?' · <small>de baja</small>':''}<br><small>${esc(x.email)} · ${x.rol==='ADMIN'?'Patrón':'Maquinista'}</small></div>${x.rol==='ADMIN'?'':`<button class="x" data-u="e" data-i="${x.id}">✏️</button><button class="x" data-u="${x.baja?'a':'b'}" data-i="${x.id}">${x.baja?'↩️':'🗑'}</button>`}</div>`).join('');
+}
+$('listaM').onclick=async e=>{
+const u=e.target.dataset.u,i=e.target.dataset.i;if(!u||sinRed())return;
+const x=remoto.miembros.find(y=>y.id===i);if(!x)return;
+let q;
+if(u==='e'){
+const n=prompt('Nombre para mostrar de '+x.email+':',x.nombre||'');if(n===null)return;
+q=await sb.from('profiles').update({nombre:n.trim()||null}).eq('id',i).select('id');
+}else{
+if(u==='b'&&!confirm('¿Dar de baja a '+(x.nombre||x.email)+'? No podrá ingresar ni cargar, pero sus cargas anteriores se conservan.'))return;
+q=await sb.from('profiles').update({baja:u==='b'}).eq('id',i).select('id');
+}
+if(q.error||!q.data.length)return alert('No se pudo: '+(q.error?q.error.message:'sin permiso.'));
+await bajarPanel();renderInfo();
+};
