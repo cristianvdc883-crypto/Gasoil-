@@ -42,7 +42,8 @@ nav button.on{color:var(--g);font-weight:700}
 <button class="big" id="aIng" style="margin-top:16px;padding:18px;font-size:20px">INGRESAR</button>
 <h3>¿Primera vez? Creá tu cuenta</h3>
 <label style="margin-top:0">Código de invitación (maquinistas)</label><input id="aCode" placeholder="Ej: EUFEMIA" autocapitalize="characters">
-<label>Nombre del campo (solo patrón, sin código)</label><input id="aCampo" placeholder="Ej: La Eufemia">
+<label>Código de activación (solo patrones nuevos)</label><input id="aAct" placeholder="Ej: ACT-XXXXXXXX" autocapitalize="characters" autocomplete="off">
+<label>Nombre del campo (solo patrón nuevo)</label><input id="aCampo" placeholder="Ej: La Eufemia">
 <button class="sec" id="aReg">Crear cuenta</button>
 <div class="st" id="aMsg"></div>
 </div></section>
@@ -83,6 +84,13 @@ nav button.on{color:var(--g);font-weight:700}
 <h3>Cargas del mes (editar o borrar)</h3><div id="listaC"></div>
 </div>
 </section>
+<section id="v-plat" class="hide">
+<div class="card"><h3 style="margin-top:0">Código de activación</h3><div class="st">Entregalo al cliente cuando pague: sirve para crear UNA cuenta de patrón.</div>
+<div class="two"><div><label>Usuarios</label><input id="pMax" type="number" value="3"></div><div><label>Días (vacío = sin vencimiento)</label><input id="pDias" type="number" value="30"></div></div>
+<button class="big" id="pCrear" style="margin-top:12px;padding:16px;font-size:18px">Generar código</button>
+<h3>Códigos sin usar</h3><div id="pCodigos"></div></div>
+<div class="card"><h3 style="margin-top:0">Clientes</h3><div id="pClientes"></div></div>
+</section>
 <section id="v-datos" class="hide">
 <div class="card"><h3 style="margin-top:0">Tu campo</h3><div id="campoInfo" class="st"></div><h3>Equipo de trabajo</h3><div id="listaM"></div></div>
 <div class="card"><h3 style="margin-top:0">Campos y cisternas</h3><div class="st">Cada campo tiene su cisterna: cargá los litros cuando la llenan y el stock baja solo con cada carga.</div><div class="two" style="margin-top:8px"><input id="nuevoSitio" placeholder="Ej: Campo Norte" autocomplete="off"><button class="sec" id="addSitio" style="margin-top:0;width:auto;padding:0 16px">Agregar</button></div><div id="listaSitios"></div><h3>Movimientos de cisterna</h3><div id="listaIng"></div></div>
@@ -107,11 +115,14 @@ nav button.on{color:var(--g);font-weight:700}
 <nav class="hide">
 <button data-v="cargar" class="on">⛽ Cargar</button>
 <button data-v="resumen">📊 Panel</button>
+<button data-v="plat" id="nPlat" class="hide">👑 Plataforma</button>
 <button data-v="datos">💾 Datos</button>
 </nav>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" onerror="void 0"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js" onerror="void 0"></script>
 <script src="app.js"></script>
 <script src="admin.js"></script>
+<script src="plat.js"></script>
 <script>arrancar();</script>
 </body></html>
+  
