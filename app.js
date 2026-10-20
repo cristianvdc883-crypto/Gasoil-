@@ -137,7 +137,7 @@ await ocrTexto(c);localStorage.setItem('ocr_ok','1');$('ocrst').textContent='Lis
 }catch(e){$('ocrst').textContent='No se pudo descargar. Probá de nuevo con mejor señal.'}
 };
 function renderInfo(){
-if(perfil&&perfil.rol==='ADMIN')$('campoInfo').innerHTML=`Campo: <b>${esc(perfil.campo||'')}</b><br>Código para tus maquinistas: <b style="font-size:22px">${esc(perfil.code||'')}</b><br>Usuarios: ${remoto.miembros.length}/${perfil.max||3}<br>${remoto.miembros.map(esc).join(', ')}`;
+if(perfil&&perfil.rol==='ADMIN')$('campoInfo').innerHTML=`Campo: <b>${esc(perfil.campo||'')}</b><br>Código para tus maquinistas: <b style="font-size:22px">${esc(perfil.code||'')}</b><br>Usuarios activos: ${remoto.miembros.filter(x=>x&&!x.baja).length}/${perfil.max||3}${pintarMiembros()||''}`;
 $('ocrst').textContent=localStorage.getItem('ocr_ok')?'Listo ✔ El OCR ya debería andar sin internet.':'';
 $('info').textContent=`${regs.length} cargas guardadas en este celular. Si borrás los datos del navegador, se pierden: hacé backup seguido.`;
 }
@@ -146,8 +146,9 @@ let errSync='';
 const loc=d=>{const x=new Date(d);x.setMinutes(x.getMinutes()-x.getTimezoneOffset());return x.toISOString().slice(0,16)};
 function panel(){const s=new Set(remoto.filas.map(r=>r.sid));return remoto.filas.concat(regs.filter(r=>!s.has(r.sid)).map(r=>({...r,quien:perfil?perfil.email.split('@')[0]:'yo',sitio:r.sitio_id})))}
 async function cargarPerfil(u){
-const {data,error}=await sb.from('profiles').select('id,email,rol,campo_id,invite_code,campos!campo_id(nombre,max_devices)').eq('id',u.id).single();
+const {data,error}=await sb.from('profiles').select('id,email,rol,campo_id,invite_code,baja,campos!campo_id(nombre,max_devices)').eq('id',u.id).single();
 if(error)throw error;
+if(data.baja)throw new Error('El patrón dio de baja tu acceso.');
 perfil={id:data.id,email:data.email,rol:data.rol,campo_id:data.campo_id,code:data.invite_code,campo:data.campos&&data.campos.nombre,max:data.campos&&data.campos.max_devices};
 localStorage.setItem('perfil',JSON.stringify(perfil));
 }
@@ -184,16 +185,18 @@ $('est').textContent=(navigator.onLine?'● En línea':'○ Sin señal')+(n?' ·
 async function bajarPanel(){
 const [c,p]=await Promise.all([
 sb.from('cargas').select('sync_id,maquina,litros,horometro,lote,created_at,user_id,sitio_id').eq('campo_id',perfil.campo_id).order('created_at',{ascending:false}).limit(1000),
-sb.from('profiles').select('id,email').eq('campo_id',perfil.campo_id)]);
+sb.from('profiles').select('id,email,nombre,rol,baja').eq('campo_id',perfil.campo_id)]);
 if(c.error||p.error){errSync=/fetch|network/i.test(String((c.error||p.error).message))?'':' · ⚠ '+String((c.error||p.error).message).slice(0,40);return}
 errSync='';
-const m=Object.fromEntries(p.data.map(x=>[x.id,x.email.split('@')[0]]));
-remoto={filas:c.data.map(r=>({sid:r.sync_id,eq:r.maquina,l:+r.litros,h:+r.horometro||0,lote:r.lote||'',f:loc(r.created_at),quien:m[r.user_id]||'?',sitio:r.sitio_id})),miembros:p.data.map(x=>x.email)};
+const m=Object.fromEntries(p.data.map(x=>[x.id,(x.nombre||x.email.split('@')[0])+(x.baja?' (baja)':'')]));
+remoto={filas:c.data.map(r=>({sid:r.sync_id,eq:r.maquina,l:+r.litros,h:+r.horometro||0,lote:r.lote||'',f:loc(r.created_at),quien:m[r.user_id]||'?',sitio:r.sitio_id})),miembros:p.data};
 localStorage.setItem('remoto',JSON.stringify(remoto));
 }
 async function sync(){
 if(!sb||!perfil||!navigator.onLine)return renderEstado();
 try{
+const q=await sb.from('profiles').select('baja').eq('id',perfil.id).maybeSingle();
+if(q.data&&q.data.baja){alert('El patrón dio de baja tu acceso a este campo.');regs=[];persist();$('salir').click();return}
 const pend=regs.filter(r=>!r.ok);
 if(pend.length){
 const {error}=await sb.from('cargas').upsert(pend.map(r=>({sync_id:r.sid,campo_id:perfil.campo_id,user_id:perfil.id,maquina:r.eq,sitio_id:r.sitio_id||null,litros:r.l,horometro:r.h||null,lote:r.lote||null,lat:r.lat??null,lng:r.lng??null,created_at:new Date(r.f).toISOString()})),{onConflict:'sync_id',ignoreDuplicates:true});
@@ -227,4 +230,3 @@ if(perfil){mostrarApp();sync()}else show('auth');
 addEventListener('online',sync);addEventListener('offline',renderEstado);
 if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
-  
