@@ -85,11 +85,18 @@ nav button.on{color:var(--g);font-weight:700}
 </div>
 </section>
 <section id="v-plat" class="hide">
+<div class="card"><h3 style="margin-top:0">Precio y dólar</h3>
+<div class="two"><div><label style="margin-top:0">Precio mensual (USD)</label><input id="aPrecio" type="number" inputmode="decimal"></div><div><label style="margin-top:0">Dólar a usar</label><select id="aTipo"><option value="oficial">Oficial</option><option value="blue">Blue</option><option value="bolsa">MEP</option><option value="tarjeta">Tarjeta</option><option value="mayorista">Mayorista</option></select></div></div>
+<label>Cotización ($ por dólar)</label><div class="two"><input id="aCot" type="number" inputmode="decimal"><button class="sec" id="aTraer" style="margin-top:0;width:auto;padding:0 14px">Traer de hoy</button></div>
+<div id="aResumen" class="st" style="font-size:15px"></div>
+<button class="sec" id="aGuardar">Guardar precio y tipo de dólar</button></div>
 <div class="card"><h3 style="margin-top:0">Código de activación</h3><div class="st">Entregalo al cliente cuando pague: sirve para crear UNA cuenta de patrón.</div>
 <div class="two"><div><label>Usuarios</label><input id="pMax" type="number" value="3"></div><div><label>Días (vacío = sin vencimiento)</label><input id="pDias" type="number" value="30"></div></div>
 <button class="big" id="pCrear" style="margin-top:12px;padding:16px;font-size:18px">Generar código</button>
 <h3>Códigos sin usar</h3><div id="pCodigos"></div></div>
+<div class="card"><h3 style="margin-top:0">Por vencer (7 días) o vencidos</h3><div id="pVence"></div></div>
 <div class="card"><h3 style="margin-top:0">Clientes</h3><div id="pClientes"></div></div>
+<div class="card"><h3 style="margin-top:0">Pagos</h3><div id="pTotal" class="st"></div><div id="pPagos"></div></div>
 </section>
 <section id="v-datos" class="hide">
 <div class="card"><h3 style="margin-top:0">Tu campo</h3><div id="campoInfo" class="st"></div><h3>Equipo de trabajo</h3><div id="listaM"></div></div>
@@ -125,4 +132,3 @@ nav button.on{color:var(--g);font-weight:700}
 <script src="plat.js"></script>
 <script>arrancar();</script>
 </body></html>
-  
