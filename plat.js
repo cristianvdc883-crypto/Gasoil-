@@ -95,4 +95,4 @@ const r2=await sb.rpc('dueno_set_ajuste',{p_clave:'tipo_dolar',p_valor:AJ.tipo})
 if(r1.error||r2.error)return alert('No se pudo: '+(r1.error||r2.error).message);
 await traerCot();$('aCot').value=COT?COT.v:'';renderPlat();alert('Guardado.');
 };
-  
+                                                                                                                                                                                                                  
