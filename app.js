@@ -1,6 +1,8 @@
 const $=id=>document.getElementById(id),K='gasoil_v2';
 const SB_URL='https://wzozpqcsypdszueitpzo.supabase.co',SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6b3pwcWNzeXBkc3p1ZWl0cHpvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIxODg0MzcsImV4cCI6MjEwNzc2NDQzN30.63xT-7SUAUdL4poVnemUFxSFBxBaVW7mRjgpMgZxBfk';
 let sb=null;try{sb=supabase.createClient(SB_URL,SB_KEY)}catch(e){}
+let recup=/type=recovery/.test(location.hash);
+if(sb)sb.auth.onAuthStateChange(ev=>{if(ev==='PASSWORD_RECOVERY'){recup=true;show('nueva')}});
 let regs=load(),thumb='',mes=new Date().toISOString().slice(0,7),perfil=null,pos=null,destino='litros',chipT='litros';
 let remoto=JSON.parse(localStorage.getItem('remoto')||'null')||{filas:[],miembros:[]};
 regs.forEach(r=>{if(!r.sid){r.sid=crypto.randomUUID();r.ok=0}});
@@ -173,6 +175,25 @@ if(error)return aMsg('No se pudo crear la cuenta. '+(code?'Revisá el código o 
 if(!data.session)return aMsg('Revisá tu email para confirmar la cuenta y después ingresá.');
 try{await iniciar(data.user)}catch(e){aMsg('Cuenta creada, pero no se pudo cargar el perfil: '+(e.message||e))}
 };
+$('aOlvide').onclick=async()=>{
+const m=$('aMail').value.trim();
+if(!m)return aMsg('Escribí tu email arriba y volvé a tocar.');
+if(!sb||!navigator.onLine)return aMsg('Necesitás señal.');
+aMsg('Enviando…');
+const {error}=await sb.auth.resetPasswordForEmail(m,{redirectTo:location.origin+location.pathname});
+aMsg(error?'No se pudo enviar. Probá en unos minutos.':'Si el email existe, te mandamos un link. Mirá también en spam.');
+};
+$('nGuardar').onclick=async()=>{
+const a=$('nPass').value,b=$('nPass2').value,n=$('nMsg');
+if(!sb)return n.textContent='No cargó el servidor. Abrí la app con señal.';
+if(a.length<6)return n.textContent='Mínimo 6 caracteres.';
+if(a!==b)return n.textContent='Las contraseñas no coinciden.';
+n.textContent='Guardando…';
+const {data,error}=await sb.auth.updateUser({password:a});
+if(error)return n.textContent='No se pudo cambiar: '+error.message+' (el link vence, pedí uno nuevo).';
+recup=false;history.replaceState(null,'',location.pathname);
+try{await iniciar(data.user)}catch(e){aMsg('Clave cambiada. Ingresá con la nueva.');show('auth')}
+};
 function mostrarApp(){
 const adm=perfil.rol==='ADMIN';
 $('hdr').classList.remove('hide');
@@ -229,8 +250,10 @@ const {data}=await lim(sb.auth.getSession(),5000);
 if(data.session){if(!perfil||perfil.id!==data.session.user.id){if(navigator.onLine)await lim(cargarPerfil(data.session.user),8000);else perfil=null}}
 else if(navigator.onLine)perfil=null;
 }catch(e){}}
+if(recup){show('nueva');return}
 if(perfil){mostrarApp();sync()}else show('auth');
 }
 addEventListener('online',sync);addEventListener('offline',renderEstado);
 if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+                                                                                
