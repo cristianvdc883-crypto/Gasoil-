@@ -1,5 +1,5 @@
 // Datos de cobro que ven los clientes. Si ponés tu WhatsApp en "wa" (con código de país, sin + ni espacios, ej: 5493534123456), el botón "Ya pagué" abre WhatsApp. Si queda vacío, abre el mail.
-const PAGO={alias:'cristian-30.1',titular:'Cristian Nicolás Pereyra',wa:'',mail:'apps19445@gmail.com'};
+const PAGO={alias:'cristian-30.1',titular:'Cristian Nicolás Pereyra',wa:'5493584602689',mail:'apps19445@gmail.com'};
 let CU=null,COTC=null,errC='';
 try{CU=JSON.parse(localStorage.getItem('cuenta')||'null');COTC=JSON.parse(localStorage.getItem('cotc')||'null')}catch(e){}
 const pesoC=n=>'$ '+Math.round(n).toLocaleString('es-AR');
@@ -57,4 +57,4 @@ try{await cargarPerfil({id:perfil.id})}catch(err){return alert('No se pudo actua
 if(perfil.bloq)return alert('Todavía figura sin activar. Si ya pagaste, mandanos el comprobante.');
 mostrarApp();sync()}
 };
-                                                                                                                   
+  
