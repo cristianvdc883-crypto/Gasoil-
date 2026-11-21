@@ -17,6 +17,7 @@ function show(v){
 document.querySelectorAll('section').forEach(s=>s.classList.toggle('hide',s.id!=='v-'+v));
 document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
 if(v==='plat')pintarPlat();
+if(v==='cuenta')pintarCuenta();
 if(v==='resumen'){renderRes();sync().then(renderRes)} if(v==='datos'){renderInfo();sync().then(renderInfo)}
 }
 function openForm(){
@@ -152,13 +153,17 @@ async function cargarPerfil(u){
 const {data,error}=await sb.from('profiles').select('id,email,rol,campo_id,invite_code,baja,es_dueno,campos!campo_id(nombre,max_devices)').eq('id',u.id).single();
 if(error)throw error;
 if(data.baja)throw new Error('El patrón dio de baja tu acceso.');
-if(!data.campos)throw new Error('Tu cuenta está vencida o suspendida. Consultá con quien te dio la app.');
-perfil={dueno:!!data.es_dueno,id:data.id,email:data.email,rol:data.rol,campo_id:data.campo_id,code:data.invite_code,campo:data.campos&&data.campos.nombre,max:data.campos&&data.campos.max_devices};
+if(!data.campos){
+if(data.rol!=='ADMIN')throw new Error('Tu cuenta está vencida o suspendida. Consultá con quien te dio la app.');
+perfil={bloq:true,dueno:!!data.es_dueno,id:data.id,email:data.email,rol:data.rol,campo_id:data.campo_id,code:data.invite_code,campo:'',max:0};
+localStorage.setItem('perfil',JSON.stringify(perfil));return;
+}
+perfil={bloq:false,dueno:!!data.es_dueno,id:data.id,email:data.email,rol:data.rol,campo_id:data.campo_id,code:data.invite_code,campo:data.campos&&data.campos.nombre,max:data.campos&&data.campos.max_devices};
 localStorage.setItem('perfil',JSON.stringify(perfil));
 }
 async function iniciar(u){
 await cargarPerfil(u);mostrarApp();sync();
-if(navigator.onLine&&!localStorage.getItem('ocr_ok'))$('prep').click();
+if(navigator.onLine&&!perfil.bloq&&!localStorage.getItem('ocr_ok'))$('prep').click();
 }
 $('aIng').onclick=async()=>{
 if(!sb)return aMsg('No cargó el servidor. Abrí la app con señal.');
@@ -198,8 +203,9 @@ try{await iniciar(data.user)}catch(e){aMsg('Clave cambiada. Ingresá con la nuev
 function mostrarApp(){
 const adm=perfil.rol==='ADMIN';
 $('hdr').classList.remove('hide');
-document.querySelector('nav').classList.toggle('hide',!adm);$('nPlat').classList.toggle('hide',!perfil.dueno);
+document.querySelector('nav').classList.toggle('hide',!adm||perfil.bloq);$('nPlat').classList.toggle('hide',!perfil.dueno);$('nCuenta').classList.toggle('hide',!!perfil.dueno);
 $('quien').textContent=perfil.email.split('@')[0]+' · '+(adm?'Patrón':'Maquinista');
+if(perfil.bloq){show('cuenta');renderEstado();return}
 show('cargar');render();renderEstado();pintarEq();
 }
 function renderEstado(){
@@ -217,12 +223,12 @@ remoto={filas:c.data.map(r=>({sid:r.sync_id,eq:r.maquina,l:+r.litros,h:+r.horome
 localStorage.setItem('remoto',JSON.stringify(remoto));
 }
 async function sync(){
-if(!sb||!perfil||!navigator.onLine)return renderEstado();
+if(!sb||!perfil||!navigator.onLine||perfil.bloq)return renderEstado();
 try{
 const q=await sb.from('profiles').select('baja').eq('id',perfil.id).maybeSingle();
 if(q.data&&q.data.baja){alert('El patrón dio de baja tu acceso a este campo.');regs=[];persist();$('salir').click();return}
 const cc=await sb.from('campos').select('id').eq('id',perfil.campo_id).maybeSingle();
-if(!cc.error&&!cc.data){errSync=' · ⚠ cuenta vencida o suspendida';renderEstado();return}
+if(!cc.error&&!cc.data){errSync=' · ⚠ cuenta vencida o suspendida';if(perfil.rol==='ADMIN'){perfil.bloq=true;localStorage.setItem('perfil',JSON.stringify(perfil));mostrarApp()}renderEstado();return}
 const pend=regs.filter(r=>!r.ok);
 if(pend.length){
 const {error}=await sb.from('cargas').upsert(pend.map(r=>({sync_id:r.sid,campo_id:perfil.campo_id,user_id:perfil.id,maquina:r.eq,sitio_id:r.sitio_id||null,litros:r.l,horometro:r.h||null,lote:r.lote||null,lat:r.lat??null,lng:r.lng??null,created_at:new Date(r.f).toISOString()})),{onConflict:'sync_id',ignoreDuplicates:true});
@@ -240,7 +246,7 @@ const n=regs.filter(r=>!r.ok).length;
 if(n&&!confirm(n+' cargas todavía no se subieron y se perderían. ¿Salir igual?'))return;
 try{await sb.auth.signOut()}catch(e){}
 regs=[];persist();perfil=null;remoto={filas:[],miembros:[]};
-['perfil','remoto','mias','miasOk','sitios','stock','equipos','sitio'].forEach(k=>localStorage.removeItem(k));mias=[];listaEq=[];sitios=[];stock={};
+['perfil','remoto','mias','miasOk','sitios','stock','equipos','sitio','cuenta'].forEach(k=>localStorage.removeItem(k));mias=[];listaEq=[];sitios=[];stock={};
 $('hdr').classList.add('hide');document.querySelector('nav').classList.add('hide');show('auth');
 };
 const lim=(p,ms)=>Promise.race([p,new Promise((_,no)=>setTimeout(()=>no(new Error('timeout')),ms))]);
@@ -248,7 +254,7 @@ async function arrancar(){
 try{perfil=JSON.parse(localStorage.getItem('perfil')||'null')}catch(e){perfil=null}
 if(sb){try{
 const {data}=await lim(sb.auth.getSession(),5000);
-if(data.session){if(!perfil||perfil.id!==data.session.user.id){if(navigator.onLine)await lim(cargarPerfil(data.session.user),8000);else perfil=null}}
+if(data.session){if(!perfil||perfil.id!==data.session.user.id||perfil.bloq){if(navigator.onLine)await lim(cargarPerfil(data.session.user),8000);else if(!perfil||perfil.id!==data.session.user.id)perfil=null}}
 else if(navigator.onLine)perfil=null;
 }catch(e){}}
 if(recup){show('nueva');return}
