@@ -169,6 +169,7 @@ try{await iniciar(data.user)}catch(e){aMsg('No se pudo cargar tu perfil: '+(e.me
 };
 $('aReg').onclick=async()=>{
 if(!sb)return aMsg('No cargó el servidor. Abrí la app con señal.');
+if(!$('aAcepto').checked)return aMsg('Para crear la cuenta tenés que aceptar los términos y la política de privacidad.');
 const code=$('aCode').value.trim();aMsg('Creando cuenta…');
 const {data,error}=await sb.auth.signUp({email:$('aMail').value.trim(),password:$('aPass').value,options:{data:{invite_code:code,campo_nombre:$('aCampo').value.trim(),activation_code:$('aAct').value.trim()}}});
 if(error)return aMsg('No se pudo crear la cuenta. '+(code?'Revisá el código o si el campo ya llegó a su límite de dispositivos. ':'Para crear una cuenta de patrón necesitás un código de activación sin usar. ')+error.message);
@@ -256,4 +257,4 @@ if(perfil){mostrarApp();sync()}else show('auth');
 addEventListener('online',sync);addEventListener('offline',renderEstado);
 if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
-                                                                                
+  
