@@ -126,11 +126,45 @@ const ids=new Set(regs.map(r=>r.id));let n=0;
 a.forEach(r=>{if(r&&r.id&&r.l&&r.eq&&!ids.has(r.id)){r.sid=r.sid||crypto.randomUUID();r.ok=0;regs.push(r);n++}});
 persist();render();alert(n+' cargas importadas.')}catch(x){alert('Archivo inválido.')}
 };
-$('csv').onclick=()=>{
-if(!regs.length)return;
-const q=s=>'"'+String(s).replace(/"/g,'""')+'"';
-bajar('fecha,equipo,litros,horometro,lote\n'+regs.map(r=>[r.f,q(r.eq),r.l,r.h||'',q(r.lote||'')].join(',')).join('\n'),'text/csv','gasoil.csv');
+if($('xPer')){
+$('xMes').value=nowLocal().slice(0,7);
+$('xPer').options[0].textContent='Este mes ('+nowLocal().slice(0,7)+')';
+$('xPer').onchange=()=>$('xMes').classList.toggle('hide',$('xPer').value!=='otro');
+const rangoMes=m=>{const [y,n]=m.split('-').map(Number);return [new Date(y,n-1,1).toISOString(),new Date(y,n,1).toISOString()]};
+const cargasDe=async m=>{
+if(navigator.onLine&&sb){
+try{
+await sync();
+const quien=Object.fromEntries((remoto.miembros||[]).filter(x=>x&&x.id).map(x=>[x.id,(x.nombre||x.email.split('@')[0])+(x.baja?' (baja)':'')]));
+let out=[],from=0;
+for(;;){
+let q=sb.from('cargas').select('maquina,litros,horometro,lote,created_at,user_id,sitio_id').eq('campo_id',perfil.campo_id).order('created_at',{ascending:true}).order('sync_id').range(from,from+999);
+if(m){const [d,h]=rangoMes(m);q=q.gte('created_at',d).lt('created_at',h)}
+const {data,error}=await q;
+if(error)throw error;
+out=out.concat(data);
+if(data.length<1000)break;
+from+=1000;
+}
+return {filas:out.map(r=>({f:loc(r.created_at),eq:r.maquina,l:+r.litros,h:+r.horometro||0,lote:r.lote||'',quien:quien[r.user_id]||'',sitio:r.sitio_id})),local:false};
+}catch(e){}
+}
+return {filas:panel().filter(r=>!m||r.f.startsWith(m)).map(r=>({f:r.f,eq:r.eq,l:r.l,h:r.h,lote:r.lote||'',quien:r.quien||'',sitio:r.sitio})),local:true};
 };
+$('csv').onclick=async()=>{
+const per=$('xPer').value,m=per==='mes'?nowLocal().slice(0,7):per==='otro'?$('xMes').value:'';
+if(per==='otro'&&!m)return $('xSt').textContent='Elegí el mes.';
+$('xSt').textContent='Preparando…';
+const {filas,local}=await cargasDe(m);
+if(!filas.length)return $('xSt').textContent='No hay cargas en ese período.';
+filas.sort((a,b)=>a.f.localeCompare(b.f));
+const q=s=>'"'+String(s).replace(/"/g,'""')+'"',tot=Math.round(filas.reduce((a,r)=>a+r.l,0)*100)/100;
+const lineas=filas.map(r=>[r.f.replace('T',' '),q(r.eq),r.l,r.h||'',q(r.lote||''),q(r.quien||''),q(r.sitio?nSit(r.sitio):'')].join(','));
+lineas.push(['TOTAL','',tot,'','','',''].join(','));
+bajar('\ufeff'+'fecha,equipo,litros,horometro,lote,maquinista,campo\n'+lineas.join('\n'),'text/csv','gasoil-'+(m||'historial-'+nowLocal().slice(0,10))+'.csv');
+$('xSt').textContent=filas.length+' cargas · '+tot.toLocaleString('es-AR')+' L en total'+(local?' (sin señal: solo lo que hay en este celular)':'');
+};
+}
 $('prep').onclick=async()=>{
 if(!navigator.onLine) return $('ocrst').textContent='Necesitás internet para este paso.';
 $('ocrst').textContent='Descargando motor… puede tardar un minuto.';
