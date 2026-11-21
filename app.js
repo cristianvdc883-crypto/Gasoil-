@@ -126,6 +126,50 @@ const ids=new Set(regs.map(r=>r.id));let n=0;
 a.forEach(r=>{if(r&&r.id&&r.l&&r.eq&&!ids.has(r.id)){r.sid=r.sid||crypto.randomUUID();r.ok=0;regs.push(r);n++}});
 persist();render();alert(n+' cargas importadas.')}catch(x){alert('Archivo inválido.')}
 };
+/*XLSX_START*/
+const crcT=(()=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+const crc32=u=>{let c=0xFFFFFFFF;for(let i=0;i<u.length;i++)c=crcT[(c^u[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0};
+function zipU8(files){
+const te=new TextEncoder(),parts=[],cen=[];let off=0;
+files.forEach(([name,text])=>{
+const nb=te.encode(name),d=te.encode(text),crc=crc32(d);
+const lh=new DataView(new ArrayBuffer(30));
+lh.setUint32(0,0x04034b50,true);lh.setUint16(4,20,true);lh.setUint16(6,0x0800,true);lh.setUint16(8,0,true);lh.setUint16(10,0,true);lh.setUint16(12,0x21,true);lh.setUint32(14,crc,true);lh.setUint32(18,d.length,true);lh.setUint32(22,d.length,true);lh.setUint16(26,nb.length,true);lh.setUint16(28,0,true);
+parts.push(new Uint8Array(lh.buffer),nb,d);
+const ch=new DataView(new ArrayBuffer(46));
+ch.setUint32(0,0x02014b50,true);ch.setUint16(4,20,true);ch.setUint16(6,20,true);ch.setUint16(8,0x0800,true);ch.setUint16(10,0,true);ch.setUint16(12,0,true);ch.setUint16(14,0x21,true);ch.setUint32(16,crc,true);ch.setUint32(20,d.length,true);ch.setUint32(24,d.length,true);ch.setUint16(28,nb.length,true);ch.setUint16(30,0,true);ch.setUint16(32,0,true);ch.setUint16(34,0,true);ch.setUint16(36,0,true);ch.setUint32(38,0,true);ch.setUint32(42,off,true);
+cen.push(new Uint8Array(ch.buffer),nb);
+off+=30+nb.length+d.length;
+});
+const cs=cen.reduce((a,x)=>a+x.length,0),en=new DataView(new ArrayBuffer(22));
+en.setUint32(0,0x06054b50,true);en.setUint16(4,0,true);en.setUint16(6,0,true);en.setUint16(8,files.length,true);en.setUint16(10,files.length,true);en.setUint32(12,cs,true);en.setUint32(16,off,true);en.setUint16(20,0,true);
+const all=parts.concat(cen,[new Uint8Array(en.buffer)]),out=new Uint8Array(all.reduce((a,x)=>a+x.length,0));
+let p=0;all.forEach(x=>{out.set(x,p);p+=x.length});return out;
+}
+const xe=s=>String(s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const serialXl=f=>{const m=/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(f);return m?(Date.UTC(+m[1],m[2]-1,+m[3],+m[4],+m[5])-Date.UTC(1899,11,30))/864e5:null};
+function armarXlsx(filas,tot){
+const C=['A','B','C','D','E','F','G'],hd=['Fecha','Equipo','Litros','Horómetro','Lote','Maquinista','Campo'];
+const sc=(r,c,t,s)=>`<c r="${C[c]}${r}" t="inlineStr"${s?` s="${s}"`:''}><is><t xml:space="preserve">${xe(t)}</t></is></c>`;
+const nc=(r,c,v,s)=>`<c r="${C[c]}${r}" s="${s}"><v>${v}</v></c>`;
+let rows=`<row r="1">${hd.map((h,i)=>sc(1,i,h,1)).join('')}</row>`;
+filas.forEach((x,i)=>{const r=i+2,sr=serialXl(x.f);
+rows+=`<row r="${r}">${sr==null?sc(r,0,x.f):nc(r,0,sr,2)}${sc(r,1,x.eq)}${nc(r,2,+x.l,3)}${x.h?nc(r,3,+x.h,4):''}${x.lote?sc(r,4,x.lote):''}${x.quien?sc(r,5,x.quien):''}${x.sitioN?sc(r,6,x.sitioN):''}</row>`});
+const t=filas.length+2;
+rows+=`<row r="${t}">${sc(t,0,'TOTAL',5)}<c r="C${t}" s="6"><f>SUM(C2:C${t-1})</f><v>${tot}</v></c></row>`;
+const H='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',NS='http://schemas.openxmlformats.org/spreadsheetml/2006/main',RL='http://schemas.openxmlformats.org/officeDocument/2006/relationships',PK='http://schemas.openxmlformats.org/package/2006/relationships';
+const sheet=H+`<worksheet xmlns="${NS}"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols><col min="1" max="1" width="18" customWidth="1"/><col min="2" max="2" width="24" customWidth="1"/><col min="3" max="3" width="12" customWidth="1"/><col min="4" max="4" width="12" customWidth="1"/><col min="5" max="5" width="20" customWidth="1"/><col min="6" max="6" width="22" customWidth="1"/><col min="7" max="7" width="20" customWidth="1"/></cols><sheetData>${rows}</sheetData></worksheet>`;
+const styles=H+`<styleSheet xmlns="${NS}"><numFmts count="3"><numFmt numFmtId="164" formatCode="dd/mm/yyyy hh:mm"/><numFmt numFmtId="165" formatCode="#,##0.00"/><numFmt numFmtId="166" formatCode="0.0"/></numFmts><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9EAD3"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="7"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="166" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="165" fontId="1" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+return zipU8([
+['[Content_Types].xml',H+`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`],
+['_rels/.rels',H+`<Relationships xmlns="${PK}"><Relationship Id="rId1" Type="${RL}/officeDocument" Target="xl/workbook.xml"/></Relationships>`],
+['xl/workbook.xml',H+`<workbook xmlns="${NS}" xmlns:r="${RL}"><sheets><sheet name="Cargas" sheetId="1" r:id="rId1"/></sheets></workbook>`],
+['xl/_rels/workbook.xml.rels',H+`<Relationships xmlns="${PK}"><Relationship Id="rId1" Type="${RL}/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="${RL}/styles" Target="styles.xml"/></Relationships>`],
+['xl/styles.xml',styles],
+['xl/worksheets/sheet1.xml',sheet]]);
+}
+function bajarBin(u8,tipo,nombre){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([u8],{type:tipo}));a.download=nombre;a.click()}
+/*XLSX_END*/
 if($('xPer')){
 $('xMes').value=nowLocal().slice(0,7);
 $('xPer').options[0].textContent='Este mes ('+nowLocal().slice(0,7)+')';
@@ -158,10 +202,9 @@ $('xSt').textContent='Preparando…';
 const {filas,local}=await cargasDe(m);
 if(!filas.length)return $('xSt').textContent='No hay cargas en ese período.';
 filas.sort((a,b)=>a.f.localeCompare(b.f));
-const q=s=>'"'+String(s).replace(/"/g,'""')+'"',tot=Math.round(filas.reduce((a,r)=>a+r.l,0)*100)/100;
-const lineas=filas.map(r=>[r.f.replace('T',' '),q(r.eq),r.l,r.h||'',q(r.lote||''),q(r.quien||''),q(r.sitio?nSit(r.sitio):'')].join(','));
-lineas.push(['TOTAL','',tot,'','','',''].join(','));
-bajar('\ufeff'+'fecha,equipo,litros,horometro,lote,maquinista,campo\n'+lineas.join('\n'),'text/csv','gasoil-'+(m||'historial-'+nowLocal().slice(0,10))+'.csv');
+const tot=Math.round(filas.reduce((a,r)=>a+r.l,0)*100)/100;
+filas.forEach(r=>{r.sitioN=r.sitio?nSit(r.sitio):''});
+bajarBin(armarXlsx(filas,tot),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','gasoil-'+(m||'historial-'+nowLocal().slice(0,10))+'.xlsx');
 $('xSt').textContent=filas.length+' cargas · '+tot.toLocaleString('es-AR')+' L en total'+(local?' (sin señal: solo lo que hay en este celular)':'');
 };
 }
@@ -201,100 +244,4 @@ if(navigator.onLine&&!perfil.bloq&&!localStorage.getItem('ocr_ok'))$('prep').cli
 }
 $('aIng').onclick=async()=>{
 if(!sb)return aMsg('No cargó el servidor. Abrí la app con señal.');
-aMsg('Ingresando…');
-const {data,error}=await sb.auth.signInWithPassword({email:$('aMail').value.trim(),password:$('aPass').value});
-if(error)return aMsg('Email o contraseña incorrectos (o sin señal).');
-try{await iniciar(data.user)}catch(e){aMsg('No se pudo cargar tu perfil: '+(e.message||e))}
-};
-$('aReg').onclick=async()=>{
-if(!sb)return aMsg('No cargó el servidor. Abrí la app con señal.');
-if(!$('aAcepto').checked)return aMsg('Para crear la cuenta tenés que aceptar los términos y la política de privacidad.');
-const code=$('aCode').value.trim();aMsg('Creando cuenta…');
-const {data,error}=await sb.auth.signUp({email:$('aMail').value.trim(),password:$('aPass').value,options:{data:{invite_code:code,campo_nombre:$('aCampo').value.trim(),activation_code:$('aAct').value.trim()}}});
-if(error)return aMsg('No se pudo crear la cuenta. '+(code?'Revisá el código o si el campo ya llegó a su límite de dispositivos. ':'Para crear una cuenta de patrón necesitás un código de activación sin usar. ')+error.message);
-if(!data.session)return aMsg('Revisá tu email para confirmar la cuenta y después ingresá.');
-try{await iniciar(data.user)}catch(e){aMsg('Cuenta creada, pero no se pudo cargar el perfil: '+(e.message||e))}
-};
-$('aOlvide').onclick=async()=>{
-const m=$('aMail').value.trim();
-if(!m)return aMsg('Escribí tu email arriba y volvé a tocar.');
-if(!sb||!navigator.onLine)return aMsg('Necesitás señal.');
-aMsg('Enviando…');
-const {error}=await sb.auth.resetPasswordForEmail(m,{redirectTo:location.origin+location.pathname});
-aMsg(error?'No se pudo enviar. Probá en unos minutos.':'Si el email existe, te mandamos un link. Mirá también en spam.');
-};
-$('nGuardar').onclick=async()=>{
-const a=$('nPass').value,b=$('nPass2').value,n=$('nMsg');
-if(!sb)return n.textContent='No cargó el servidor. Abrí la app con señal.';
-if(a.length<6)return n.textContent='Mínimo 6 caracteres.';
-if(a!==b)return n.textContent='Las contraseñas no coinciden.';
-n.textContent='Guardando…';
-const {data,error}=await sb.auth.updateUser({password:a});
-if(error)return n.textContent='No se pudo cambiar: '+error.message+' (el link vence, pedí uno nuevo).';
-recup=false;history.replaceState(null,'',location.pathname);
-try{await iniciar(data.user)}catch(e){aMsg('Clave cambiada. Ingresá con la nueva.');show('auth')}
-};
-function mostrarApp(){
-const adm=perfil.rol==='ADMIN';
-$('hdr').classList.remove('hide');
-document.querySelector('nav').classList.toggle('hide',!adm||perfil.bloq);$('nPlat').classList.toggle('hide',!perfil.dueno);$('nCuenta').classList.toggle('hide',!!perfil.dueno);
-$('quien').textContent=perfil.email.split('@')[0]+' · '+(adm?'Patrón':'Maquinista');
-if(perfil.bloq){show('cuenta');renderEstado();return}
-show('cargar');render();renderEstado();pintarEq();
-}
-function renderEstado(){
-const n=regs.filter(r=>!r.ok).length;
-$('est').textContent=(navigator.onLine?'● En línea':'○ Sin señal')+(n?' · '+n+' sin subir':'')+errSync;
-}
-async function bajarPanel(){
-const [c,p]=await Promise.all([
-sb.from('cargas').select('sync_id,maquina,litros,horometro,lote,created_at,user_id,sitio_id').eq('campo_id',perfil.campo_id).order('created_at',{ascending:false}).limit(1000),
-sb.from('profiles').select('id,email,nombre,rol,baja').eq('campo_id',perfil.campo_id)]);
-if(c.error||p.error){errSync=/fetch|network/i.test(String((c.error||p.error).message))?'':' · ⚠ '+String((c.error||p.error).message).slice(0,40);return}
-errSync='';
-const m=Object.fromEntries(p.data.map(x=>[x.id,(x.nombre||x.email.split('@')[0])+(x.baja?' (baja)':'')]));
-remoto={filas:c.data.map(r=>({sid:r.sync_id,eq:r.maquina,l:+r.litros,h:+r.horometro||0,lote:r.lote||'',f:loc(r.created_at),quien:m[r.user_id]||'?',sitio:r.sitio_id})),miembros:p.data};
-localStorage.setItem('remoto',JSON.stringify(remoto));
-}
-async function sync(){
-if(!sb||!perfil||!navigator.onLine||perfil.bloq)return renderEstado();
-try{
-const q=await sb.from('profiles').select('baja').eq('id',perfil.id).maybeSingle();
-if(q.data&&q.data.baja){alert('El patrón dio de baja tu acceso a este campo.');regs=[];persist();$('salir').click();return}
-const cc=await sb.from('campos').select('id').eq('id',perfil.campo_id).maybeSingle();
-if(!cc.error&&!cc.data){errSync=' · ⚠ cuenta vencida o suspendida';if(perfil.rol==='ADMIN'){perfil.bloq=true;localStorage.setItem('perfil',JSON.stringify(perfil));mostrarApp()}renderEstado();return}
-const pend=regs.filter(r=>!r.ok);
-if(pend.length){
-const {error}=await sb.from('cargas').upsert(pend.map(r=>({sync_id:r.sid,campo_id:perfil.campo_id,user_id:perfil.id,maquina:r.eq,sitio_id:r.sitio_id||null,litros:r.l,horometro:r.h||null,lote:r.lote||null,lat:r.lat??null,lng:r.lng??null,created_at:new Date(r.f).toISOString()})),{onConflict:'sync_id',ignoreDuplicates:true});
-if(!error){pend.forEach(r=>r.ok=1);persist();errSync=''}else errSync=/fetch|network/i.test(String(error.message))?'':' · ⚠ '+String(error.message).slice(0,40);
-}
-await bajarSitios();
-await bajarEquipos();
-await bajarMias();
-if(perfil.rol==='ADMIN'){await bajarPanel();await bajarStock()}
-}catch(e){}
-render();renderEstado();
-}
-$('salir').onclick=async()=>{
-const n=regs.filter(r=>!r.ok).length;
-if(n&&!confirm(n+' cargas todavía no se subieron y se perderían. ¿Salir igual?'))return;
-try{await sb.auth.signOut()}catch(e){}
-regs=[];persist();perfil=null;remoto={filas:[],miembros:[]};
-['perfil','remoto','mias','miasOk','sitios','stock','equipos','sitio','cuenta'].forEach(k=>localStorage.removeItem(k));mias=[];listaEq=[];sitios=[];stock={};
-$('hdr').classList.add('hide');document.querySelector('nav').classList.add('hide');show('auth');
-};
-const lim=(p,ms)=>Promise.race([p,new Promise((_,no)=>setTimeout(()=>no(new Error('timeout')),ms))]);
-async function arrancar(){
-try{perfil=JSON.parse(localStorage.getItem('perfil')||'null')}catch(e){perfil=null}
-if(sb){try{
-const {data}=await lim(sb.auth.getSession(),5000);
-if(data.session){if(!perfil||perfil.id!==data.session.user.id||perfil.bloq){if(navigator.onLine)await lim(cargarPerfil(data.session.user),8000);else if(!perfil||perfil.id!==data.session.user.id)perfil=null}}
-else if(navigator.onLine)perfil=null;
-}catch(e){}}
-if(recup){show('nueva');return}
-if(perfil){mostrarApp();sync()}else show('auth');
-}
-addEventListener('online',sync);addEventListener('offline',renderEstado);
-if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
-if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
-  
+aMsg('In
