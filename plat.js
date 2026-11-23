@@ -1,4 +1,4 @@
-let CL=[],CD=[],PG=[],pagoId='',fechaId='',AJ={precio:16,tipo:'oficial'},COT=null;
+let CL=[],CD=[],PG=[],pagoId='',fechaId='',menuId='',AJ={precio:16,tipo:'oficial'},COT=null;
 try{COT=JSON.parse(localStorage.getItem('cot')||'null')}catch(e){}
 const peso=n=>'$ '+Math.round(n).toLocaleString('es-AR');
 const dd=s=>new Date(s).toLocaleDateString('es-AR');
@@ -33,6 +33,14 @@ renderPlat();
 function formPago(id){
 return `<div style="margin-top:8px"><label style="margin-top:0">Monto cobrado ($)</label><input id="gM" type="number" inputmode="decimal"><div class="st" id="gH"></div><div class="two"><div><label>Medio</label><select id="gD"><option>Transferencia</option><option>MercadoPago</option><option>Efectivo</option><option>Otro</option></select></div><div><label>Días que paga</label><input id="gN" type="number" value="30"></div></div><label>Vence el</label><input id="gV" type="date"><label>Nota (opcional)</label><input id="gT"><div style="display:flex;gap:8px;margin-top:10px"><button class="chip" data-a="pagoOk" data-c="${id}">Guardar pago</button><button class="chip" data-a="pagoNo">Cancelar</button></div></div>`;
 }
+function filaCli(c,i,falta){
+const sus=!c.activo,ven=!sus&&c.vence&&falta(c)<0;
+const est=sus?'sus':ven?'bad':'ok';
+const fe=c.vence?(ven?'Vencido ':'Vence ')+dd(c.vence+'T00:00:00'):'Sin vencimiento';
+const linea=(sus?'Suspendido · ':'')+fe+' · '+c.usuarios+'/'+c.max_devices+' usuarios'+(COT?' · '+peso(montoDe(30)):'');
+const menu=menuId===c.campo_id?`<div class="menu"><button data-a="usuarios" data-c="${c.campo_id}">Usuarios</button><button data-a="fecha" data-c="${c.campo_id}">Cambiar vencimiento</button><button data-a="${sus?'reactivar':'suspender'}" data-c="${c.campo_id}">${sus?'Reactivar':'Suspender'}</button><button class="del" data-a="borrar" data-c="${c.campo_id}" data-n="${esc(c.nombre)}">Borrar cuenta</button></div>`:'';
+return `<div style="${i?'border-top:1px solid var(--bd)':''}"><div class="cli"><span class="dot ${est}"></span><div class="i"><b>${esc(c.nombre)}</b><small>${esc(c.patron||'')}</small><small class="${ven?'bad':''}">${linea}</small></div><button class="pay" data-a="pago" data-c="${c.campo_id}">+ Pago</button><button class="ic" data-a="menu" data-c="${c.campo_id}" aria-label="Más opciones">⋮</button></div>${menu}${pagoId===c.campo_id?formPago(c.campo_id):''}${fechaId===c.campo_id?formFecha(c):''}</div>`;
+}
 function renderPlat(){
 resumenPrecio();
 $('pCodigos').innerHTML=CD.map(c=>`<div class="row"><div><b style="font-size:18px">${esc(c.codigo)}</b><br><small>${c.max_devices} usuarios · ${c.dias?c.dias+' días':'sin vencimiento'}</small></div><button class="chip" data-k="${esc(c.codigo)}">Copiar</button></div>`).join('')||'<div class="st">No hay códigos sin usar.</div>';
@@ -40,7 +48,7 @@ const hoy=new Date();hoy.setHours(0,0,0,0);
 const falta=c=>Math.round((new Date(c.vence+'T00:00:00')-hoy)/864e5);
 const pv=CL.filter(c=>c.vence&&falta(c)<=7).sort((x,y)=>x.vence.localeCompare(y.vence));
 $('pVence').innerHTML=pv.map(c=>{const f=falta(c);return `<div class="row"><div><b>${esc(c.nombre)}</b><br><small>${esc(c.patron||'')}</small></div><b style="${f<0?'color:#c62828':''}">${f<0?'vencido hace '+(-f)+' d':f===0?'vence hoy':'en '+f+' d'}</b></div>`}).join('')||'<div class="st">Nadie vence en los próximos 7 días.</div>';
-$('pClientes').innerHTML=CL.map(c=>`<div class="row" style="display:block"><div style="display:flex;justify-content:space-between"><b>${esc(c.nombre)}</b><small style="font-weight:700;color:${!c.activo?'#777':(c.vence&&falta(c)<0)?'#c62828':'#1e9e4a'}">${!c.activo?'SUSPENDIDO':(c.vence&&falta(c)<0)?'VENCIDO':'AL DÍA'}</small></div><small>${esc(c.patron||'')} · ${c.usuarios}/${c.max_devices} usuarios · ${c.vence?'vence '+dd(c.vence+'T00:00:00'):'sin vencimiento'}${COT?' · a cobrar '+peso(montoDe(30)):''}</small><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px"><button class="chip" data-a="pago" data-c="${c.campo_id}">＋ Pago</button><button class="chip" data-a="${c.activo?'suspender':'reactivar'}" data-c="${c.campo_id}">${c.activo?'Suspender':'Reactivar'}</button><button class="chip" data-a="fecha" data-c="${c.campo_id}">Vence el…</button><button class="chip" data-a="usuarios" data-c="${c.campo_id}">Usuarios</button></div>${pagoId===c.campo_id?formPago(c.campo_id):''}${fechaId===c.campo_id?formFecha(c):''}</div>`).join('')||'<div class="st">Todavía no hay clientes.</div>';
+$('pClientes').innerHTML=CL.map((c,i)=>filaCli(c,i,falta)).join('')||'<div class="st">Todavía no hay clientes.</div>';
 const n=new Date();
 const tm=PG.filter(x=>{const d=new Date(x.creado);return d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth()}).reduce((s,x)=>s+ +x.monto,0);
 $('pTotal').textContent='Cobrado este mes: '+peso(tm);
@@ -63,12 +71,21 @@ const k=e.target.dataset.k;if(!k)return;
 try{await navigator.clipboard.writeText(k);alert('Copiado: '+k)}catch(x){prompt('Copiá el código:',k)}
 };
 $('pClientes').onclick=async e=>{
-const a=e.target.dataset.a,c=e.target.dataset.c;if(!a)return;
-if(a==='pago'){if(navigator.onLine){await traerCot();$('aCot').value=COT?COT.v:''}pagoId=c;fechaId='';return renderPlat()}
+const b=e.target.closest('[data-a]');if(!b)return;
+const a=b.dataset.a,c=b.dataset.c;
+if(a==='menu'){menuId=menuId===c?'':c;return renderPlat()}
+if(a==='pago'){menuId='';if(navigator.onLine){await traerCot();$('aCot').value=COT?COT.v:''}pagoId=c;fechaId='';return renderPlat()}
 if(a==='pagoNo'){pagoId='';return renderPlat()}
-if(a==='fecha'){fechaId=c;pagoId='';return renderPlat()}
+if(a==='fecha'){menuId='';fechaId=c;pagoId='';return renderPlat()}
 if(a==='fechaNo'){fechaId='';return renderPlat()}
 if(sinRed())return;
+if(a==='borrar'){
+const t=prompt('Vas a borrar la cuenta "'+b.dataset.n+'" con todos sus datos (cargas, equipos, usuarios y pagos). No se puede deshacer.\n\nPara confirmar, escribí BORRAR:');
+if(!t||t.trim().toUpperCase()!=='BORRAR')return;
+const {error}=await sb.rpc('dueno_borrar_cliente',{p_id:c});
+if(error)return alert('No se pudo borrar: '+error.message);
+menuId='';return pintarPlat();
+}
 if(a==='pagoOk'){
 const m=parseFloat($('gM').value),d=parseInt($('gN').value);
 const v=$('gV').value;if(!(m>=0)||!(d>0)||!v)return alert('Poné el monto, los días y la fecha.');
@@ -89,7 +106,7 @@ if(a==='usuarios'){v=parseInt(prompt('Cantidad máxima de usuarios:','3'));if(!(
 if(a==='suspender'&&!confirm('¿Suspender este cliente? Nadie de su campo podrá usar la app.'))return;
 const {error}=await sb.rpc('dueno_cliente',{p_id:c,p_accion:a,p_valor:v});
 if(error)return alert('No se pudo: '+error.message);
-pintarPlat();
+menuId='';pintarPlat();
 };
 $('pPagos').onclick=async e=>{
 const x=e.target.dataset.x;
