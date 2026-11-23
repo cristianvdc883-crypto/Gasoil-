@@ -10,39 +10,58 @@
 <title>Gasoil Campo</title>
 <script>window.onerror=function(m,u,l){document.body.insertAdjacentHTML('beforeend','<pre style="color:#b00;white-space:pre-wrap;font-size:12px;padding:8px">⚠ '+m+' (línea '+l+')</pre>')}</script>
 <style>
-:root{--bg:#f4f5f2;--card:#fff;--tx:#1b1f1a;--mu:#667064;--bd:#d9ddd5;--g:#1e9e4a}
-@media(prefers-color-scheme:dark){:root{--bg:#121512;--card:#1c211b;--tx:#eef2ec;--mu:#9aa596;--bd:#2f372d}}
+:root{--bg:#f5f6f4;--card:#fff;--tx:#1b1f1a;--mu:#6b7569;--bd:#e1e4de;--g:#1e9e4a;--gd:#17803b;--red:#c62828}
+@media(prefers-color-scheme:dark){:root{--bg:#121512;--card:#1b201a;--tx:#eef2ec;--mu:#9aa596;--bd:#2c342a;--red:#ef6a6a}}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--tx);font:16px system-ui,sans-serif;padding:16px 16px 90px;max-width:520px;margin:auto}
-h1{font-size:20px;margin:4px 0 14px}
-.big{width:100%;padding:26px 10px;font-size:24px;font-weight:700;color:#fff;background:var(--g);border:0;border-radius:18px;box-shadow:0 4px 0 #14753a}
-.big:active{transform:translateY(3px);box-shadow:none}
-.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-top:14px}
-label{display:block;font-size:13px;color:var(--mu);margin:10px 0 4px}
-input,select{width:100%;padding:12px;font-size:18px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--tx)}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:16px 16px 96px;max-width:520px;margin:auto;-webkit-font-smoothing:antialiased}
+h1{font-size:19px;font-weight:600;margin:6px 0 16px;letter-spacing:-.2px}
+h1:before{content:"";display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--g);margin-right:9px;vertical-align:1px}
+.big{width:100%;padding:20px 10px;font-size:20px;font-weight:600;color:#fff;background:var(--g);border:0;border-radius:14px;transition:transform .1s,background .15s}
+.big:active{transform:scale(.98);background:var(--gd)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:16px;margin-top:14px}
+label{display:block;font-size:13px;font-weight:500;color:var(--mu);margin:12px 0 5px}
+input,select{width:100%;padding:12px;font-size:16px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--tx);outline:0}
+input:focus,select:focus{border-color:var(--g);box-shadow:0 0 0 3px rgba(30,158,74,.15)}
 .two{display:flex;gap:10px}.two>div{flex:1}
 img.prev{width:100%;border-radius:10px;max-height:200px;object-fit:cover}
 .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-.chip{padding:8px 14px;border-radius:20px;border:1px solid var(--g);background:none;color:var(--tx);font-size:16px}
+.chip{padding:8px 14px;border-radius:20px;border:1px solid var(--g);background:none;color:var(--tx);font-size:15px}
 .st{font-size:13px;color:var(--mu);margin-top:6px}
-.row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--bd);gap:10px}
+.row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-top:1px solid var(--bd);gap:10px}
 .row:first-child{border-top:0}
 .row img{width:48px;height:48px;border-radius:8px;object-fit:cover}
-.row b{font-size:18px}.row small{color:var(--mu)}
+.row b{font-size:16px;font-weight:600}.row small{color:var(--mu)}
 .x{background:none;border:0;color:var(--mu);font-size:20px}
-.sec{background:none;border:1px solid var(--bd);color:var(--tx);padding:12px;border-radius:10px;width:100%;margin-top:10px;font-size:15px}
-h3{margin:14px 0 4px;font-size:15px;color:var(--mu)}
+.sec{background:none;border:1px solid var(--bd);color:var(--tx);padding:12px;border-radius:10px;width:100%;margin-top:10px;font-size:15px;font-weight:500}
+.sec:active{background:var(--bg)}
+h3{margin:16px 0 4px;font-size:14px;font-weight:600;color:var(--mu)}
 nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--bd);padding-bottom:env(safe-area-inset-bottom)}
-nav button{flex:1;padding:14px 4px;background:none;border:0;color:var(--mu);font-size:14px}
-nav button.on{color:var(--g);font-weight:700}
-.hdr{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;color:var(--mu);margin:-6px 0 12px}.hdr button{background:none;border:1px solid var(--bd);color:var(--tx);padding:6px 10px;border-radius:8px}.hide{display:none}
+nav button{flex:1;padding:9px 2px 8px;background:none;border:0;color:var(--mu);font-size:11px;font-weight:500;display:flex;flex-direction:column;align-items:center;gap:3px}
+nav button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+nav button.on{color:var(--g);font-weight:600}
+.hdr{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;color:var(--mu);margin:-6px 0 12px}.hdr button{background:none;border:1px solid var(--bd);color:var(--tx);padding:6px 12px;border-radius:8px;font-size:13px}.hide{display:none}
+.cli{display:flex;align-items:center;gap:10px;padding:12px 0;border-top:1px solid var(--bd)}
+.cli:first-child{border-top:0}
+.dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--mu)}
+.dot.ok{background:var(--g)}.dot.bad{background:var(--red)}
+.cli .i{flex:1;min-width:0}
+.cli .i b{display:block;font-size:15px;font-weight:600}
+.cli .i small{display:block;color:var(--mu);font-size:12px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cli .i small.bad{color:var(--red)}
+.pay{height:34px;padding:0 12px;font-size:13px;font-weight:500;background:none;border:1px solid var(--bd);color:var(--tx);border-radius:8px}
+.ic{width:34px;height:34px;padding:0;background:none;border:0;color:var(--mu);font-size:20px;line-height:1;border-radius:8px}
+.ic:active{background:var(--bg)}
+.menu{border:1px solid var(--bd);border-radius:10px;margin:0 0 10px;overflow:hidden;background:var(--card)}
+.menu button{display:block;width:100%;padding:11px 14px;background:none;border:0;border-top:1px solid var(--bd);color:var(--tx);font-size:14px;text-align:left}
+.menu button:first-child{border-top:0}
+.menu button.del{color:var(--red)}
 </style></head><body>
-<h1>⛽ Gasoil Campo</h1>
+<h1>Gasoil Campo</h1>
 <div id="hdr" class="hdr hide"><span id="quien"></span><span id="est"></span><button id="salir">Salir</button></div>
 <section id="v-auth" class="hide"><div class="card" style="margin-top:0">
 <label style="margin-top:0">Email</label><input id="aMail" type="email" autocomplete="username">
 <label>Contraseña (mínimo 6)</label><input id="aPass" type="password" autocomplete="current-password">
-<button class="big" id="aIng" style="margin-top:16px;padding:18px;font-size:20px">INGRESAR</button>
+<button class="big" id="aIng" style="margin-top:16px;padding:16px;font-size:18px">INGRESAR</button>
 <button class="sec" id="aOlvide">Olvidé mi contraseña</button>
 <h3>¿Primera vez? Creá tu cuenta</h3>
 <label style="margin-top:0">Código de invitación (maquinistas)</label><input id="aCode" placeholder="Ej: EUFEMIA" autocapitalize="characters">
@@ -56,7 +75,7 @@ nav button.on{color:var(--g);font-weight:700}
 <h3 style="margin-top:0">Elegí tu nueva contraseña</h3>
 <label>Contraseña nueva (mínimo 6)</label><input id="nPass" type="password" autocomplete="new-password">
 <label>Repetila</label><input id="nPass2" type="password" autocomplete="new-password">
-<button class="big" id="nGuardar" style="margin-top:16px;padding:18px;font-size:20px">GUARDAR</button>
+<button class="big" id="nGuardar" style="margin-top:16px;padding:16px;font-size:18px">GUARDAR</button>
 <div class="st" id="nMsg"></div>
 </div></section>
 <section id="v-cargar" class="hide">
@@ -80,7 +99,7 @@ nav button.on{color:var(--g);font-weight:700}
 </div>
 <label>Fecha y hora</label>
 <input id="fecha" type="datetime-local">
-<button class="big" id="guardar" style="margin-top:16px;padding:18px;font-size:20px">✔ GUARDAR</button>
+<button class="big" id="guardar" style="margin-top:16px;padding:16px;font-size:18px">✔ GUARDAR</button>
 <button class="sec" id="cancel">Cancelar</button>
 </div>
 <div class="card"><h3 style="margin-top:0">Mis cargas (historial)</h3><div id="lista"></div></div>
@@ -104,7 +123,7 @@ nav button.on{color:var(--g);font-weight:700}
 <button class="sec" id="aGuardar">Guardar precio y tipo de dólar</button></div>
 <div class="card"><h3 style="margin-top:0">Código de activación</h3><div class="st">Entregalo al cliente cuando pague: sirve para crear UNA cuenta de patrón.</div>
 <div class="two"><div><label>Usuarios</label><input id="pMax" type="number" value="3"></div><div><label>Días (vacío = sin vencimiento)</label><input id="pDias" type="number" value="30"></div></div>
-<button class="big" id="pCrear" style="margin-top:12px;padding:16px;font-size:18px">Generar código</button>
+<button class="big" id="pCrear" style="margin-top:12px;padding:14px;font-size:17px">Generar código</button>
 <h3>Códigos sin usar</h3><div id="pCodigos"></div></div>
 <div class="card"><h3 style="margin-top:0">Por vencer (7 días) o vencidos</h3><div id="pVence"></div></div>
 <div class="card"><h3 style="margin-top:0">Clientes</h3><div id="pClientes"></div></div>
@@ -148,11 +167,11 @@ nav button.on{color:var(--g);font-weight:700}
 <div class="card"><div class="st" id="info"></div></div>
 </section>
 <nav class="hide">
-<button data-v="cargar" class="on">⛽ Cargar</button>
-<button data-v="resumen">📊 Panel</button>
-<button data-v="plat" id="nPlat" class="hide">👑 Plataforma</button>
-<button data-v="cuenta" id="nCuenta">💳 Cuenta</button>
-<button data-v="datos">💾 Datos</button>
+<button data-v="cargar" class="on"><svg viewBox="0 0 24 24"><path d="M5 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16M3 21h14M15 9h2a2 2 0 0 1 2 2v5a1.5 1.5 0 0 0 3 0V8l-3-3M7 8h6"/></svg>Cargar</button>
+<button data-v="resumen"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Panel</button>
+<button data-v="plat" id="nPlat" class="hide"><svg viewBox="0 0 24 24"><path d="M3 18h18M4 18 3 7l5 4 4-6 4 6 5-4-1 11"/></svg>Plataforma</button>
+<button data-v="cuenta" id="nCuenta"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>Cuenta</button>
+<button data-v="datos"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>Datos</button>
 </nav>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" onerror="void 0"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js" onerror="void 0"></script>
@@ -163,4 +182,3 @@ nav button.on{color:var(--g);font-weight:700}
 <script src="instalar.js"></script>
 <script>arrancar();</script>
 </body></html>
-                                                                                                                                                                                                                                                                                                                                                                        
